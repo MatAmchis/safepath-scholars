@@ -40,7 +40,6 @@ const navItems = [
   "Volunteer",
   "Contact",
   "Policies",
-  "Dashboard",
 ];
 
 const serviceOptions = [
