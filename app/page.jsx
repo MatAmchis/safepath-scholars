@@ -68,10 +68,10 @@ const volunteerSkills = [
 const languages = ["English", "Ukrainian", "Russian", "Spanish", "Polish", "French", "Other"];
 
 const googleFormLinks = {
-  student: "https://forms.gle/replace-with-student-intake",
-  volunteer: "https://forms.gle/replace-with-volunteer-application",
-  essay: "https://forms.gle/replace-with-essay-submission",
-  feedback: "https://forms.gle/replace-with-feedback-form",
+  student: "https://docs.google.com/forms/d/e/1FAIpQLSfkmkhN3uU8OkiTG1eb3m3Q7tozgyUlAJPwndHTVQiNR7xdVg/viewform?usp=sharing&ouid=116314989832636136817",
+  volunteer: "https://docs.google.com/forms/d/e/1FAIpQLScqxp9SCsRMdKdUAOZSOxxvWKtO1oDwc8EI7QzpaNbfz58LGw/viewform?usp=sharing&ouid=116314989832636136817",
+  essay: "https://docs.google.com/forms/d/e/1FAIpQLSdcLsSencJGD77PYxh8KidzrEV4RL4or-dbiRg_IOxUjkM-iQ/viewform?usp=dialog",
+  feedback: "https://docs.google.com/forms/d/e/1FAIpQLSdOfRGXY5YZio68-u47QyNcnvgz_l84KDdxvSZS345hys57AQ/viewform?usp=publish-editor",
 };
 
 const policyLinks = [
