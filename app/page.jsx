@@ -988,12 +988,12 @@ function Contact({ setContacts }) {
 
       formElement.reset();
     } catch (error) {
-      console.error("Contact form submission error:", error);
-      setSubmitted(
-        "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
-      );
+  console.error("Contact form submission error:", error);
+  setSubmitted(
+    `Submission error: ${error?.message || "Unknown error"}`
+  );
     } finally {
-      setIsSubmitting(false);
+  setIsSubmitting(false);
     }
   };
 
