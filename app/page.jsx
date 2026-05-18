@@ -987,7 +987,7 @@ function Contact({ setContacts }) {
       );
 
       formElement.reset();
-    } } catch (error) {
+    } catch (error) {
   console.error("Contact form submission error:", error);
   setSubmitted(
     "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
