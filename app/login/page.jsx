@@ -4,13 +4,14 @@ import { useState } from "react";
 import { createClient } from "../../lib/supabase/client";
 
 export default function LoginPage() {
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
   async function signInWithMagicLink(event) {
     event.preventDefault();
     setMessage("Sending login link...");
+
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
