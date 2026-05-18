@@ -1,5 +1,7 @@
 "use client";
+
 import React, { useMemo, useState } from "react";
+import { createClient } from "../lib/supabase/client";
 
 function IconBase({ className = "", children }) {
   return (
@@ -940,31 +942,79 @@ function VolunteerApplication({ setVolunteers }) {
 
 function Contact({ setContacts }) {
   const [submitted, setSubmitted] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    setSubmitted("");
+    setIsSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
     const record = {
-      id: `MSG-${Date.now().toString().slice(-6)}`,
-      name: form.get("name") || "",
-      email: form.get("email") || "",
-      type: form.get("type") || "General inquiry",
-      message: form.get("message") || "",
-      createdAt: new Date().toISOString(),
+      name: String(form.get("name") || "").trim(),
+      email: String(form.get("email") || "").trim(),
+      inquiry_type: String(form.get("type") || "General inquiry"),
+      organization: String(form.get("organization") || "").trim(),
+      message: String(form.get("message") || "").trim(),
+      status: "new",
     };
-    setContacts((prev) => [record, ...prev]);
-    setSubmitted("Message received. In production, this would route to the correct team inbox.");
-    event.currentTarget.reset();
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.from("contact_messages").insert(record);
+
+      if (error) {
+        throw error;
+      }
+
+      setContacts((prev) => [
+        {
+          id: `MSG-${Date.now().toString().slice(-6)}`,
+          name: record.name,
+          email: record.email,
+          type: record.inquiry_type,
+          message: record.message,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      setSubmitted(
+        "Message received. SafePath Scholars will review your message and follow up if appropriate."
+      );
+
+      formElement.reset();
+    } catch (error) {
+      console.error("Contact form submission error:", error);
+      setSubmitted(
+        "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <SectionShell eyebrow="Contact" title="Contact, partnerships, and referrals" subtitle="Use this section for families, student referrals, volunteer questions, community partners, and workshop requests.">
+    <SectionShell
+      eyebrow="Contact"
+      title="Contact, partnerships, and referrals"
+      subtitle="Use this section for families, student referrals, volunteer questions, community partners, and workshop requests."
+    >
       <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr]">
         <Card>
           <form onSubmit={handleSubmit} className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Name" required><input name="name" required className={inputClass} /></Input>
-              <Input label="Email" required><input type="email" name="email" required className={inputClass} /></Input>
+              <Input label="Name" required>
+                <input name="name" required className={inputClass} />
+              </Input>
+
+              <Input label="Email" required>
+                <input type="email" name="email" required className={inputClass} />
+              </Input>
+
               <Input label="Inquiry type" required>
                 <select name="type" required className={inputClass}>
                   <option>General inquiry</option>
@@ -975,12 +1025,20 @@ function Contact({ setContacts }) {
                   <option>Safety or conduct concern</option>
                 </select>
               </Input>
-              <Input label="Organization, if any"><input name="organization" className={inputClass} /></Input>
+
+              <Input label="Organization, if any">
+                <input name="organization" className={inputClass} />
+              </Input>
             </div>
+
             <Input label="Message" required>
               <textarea name="message" required rows={6} className={inputClass} />
             </Input>
-            <Button type="submit" className="w-full">Send message</Button>
+
+            <Button type="submit" className="w-full">
+              {isSubmitting ? "Sending..." : "Send message"}
+            </Button>
+
             <Toast message={submitted} />
           </form>
         </Card>
@@ -989,13 +1047,18 @@ function Contact({ setContacts }) {
           <Card>
             <Mail className="mb-4 h-8 w-8 text-emerald-700" />
             <h3 className="text-xl font-black text-slate-950">Program email</h3>
-            <p className="mt-3 text-sm leading-7 text-slate-600">contact@safepathscholars.org</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              contact@safepathscholars.org
+            </p>
           </Card>
+
           <Card>
             <MessageSquare className="mb-4 h-8 w-8 text-emerald-700" />
             <h3 className="text-xl font-black text-slate-950">Partner pitch</h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              We are piloting a free education-access mentorship program and welcome student referrals, workshop partnerships, and volunteer collaborations.
+              We are piloting a free education-access mentorship program and
+              welcome student referrals, workshop partnerships, and volunteer
+              collaborations.
             </p>
           </Card>
         </aside>
