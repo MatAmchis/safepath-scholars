@@ -987,15 +987,14 @@ function Contact({ setContacts }) {
       );
 
       formElement.reset();
-    } catch (error) {
+    } } catch (error) {
   console.error("Contact form submission error:", error);
   setSubmitted(
-    `Submission error: ${error?.message || "Unknown error"}`
+    "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
   );
-    } finally {
+  } finally {
   setIsSubmitting(false);
-    }
-  };
+  }
 
   return (
     <SectionShell
