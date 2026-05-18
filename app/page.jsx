@@ -955,7 +955,7 @@ function Contact({ setContacts }) {
     const record = {
       name: String(form.get("name") || "").trim(),
       email: String(form.get("email") || "").trim(),
-      inquiry_type: String(form.get("type") || "General inquiry"),
+      inquiry_type: String(form.get("type") || "General inquiry").trim(),
       organization: String(form.get("organization") || "").trim(),
       message: String(form.get("message") || "").trim(),
       status: "new",
@@ -988,13 +988,14 @@ function Contact({ setContacts }) {
 
       formElement.reset();
     } catch (error) {
-  console.error("Contact form submission error:", error);
-  setSubmitted(
-    "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
-  );
-  } finally {
-  setIsSubmitting(false);
-  }
+      console.error("Contact form submission error:", error);
+      setSubmitted(
+        "Something went wrong while submitting your message. Please try again or email contact@safepathscholars.org."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SectionShell
@@ -1011,7 +1012,12 @@ function Contact({ setContacts }) {
               </Input>
 
               <Input label="Email" required>
-                <input type="email" name="email" required className={inputClass} />
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  className={inputClass}
+                />
               </Input>
 
               <Input label="Inquiry type" required>
@@ -1031,7 +1037,12 @@ function Contact({ setContacts }) {
             </div>
 
             <Input label="Message" required>
-              <textarea name="message" required rows={6} className={inputClass} />
+              <textarea
+                name="message"
+                required
+                rows={6}
+                className={inputClass}
+              />
             </Input>
 
             <Button type="submit" className="w-full">
@@ -1045,7 +1056,9 @@ function Contact({ setContacts }) {
         <aside className="space-y-6">
           <Card>
             <Mail className="mb-4 h-8 w-8 text-emerald-700" />
-            <h3 className="text-xl font-black text-slate-950">Program email</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Program email
+            </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
               contact@safepathscholars.org
             </p>
@@ -1053,7 +1066,9 @@ function Contact({ setContacts }) {
 
           <Card>
             <MessageSquare className="mb-4 h-8 w-8 text-emerald-700" />
-            <h3 className="text-xl font-black text-slate-950">Partner pitch</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Partner pitch
+            </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
               We are piloting a free education-access mentorship program and
               welcome student referrals, workshop partnerships, and volunteer
