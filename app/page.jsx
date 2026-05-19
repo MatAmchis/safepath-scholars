@@ -292,6 +292,19 @@ function Input({ label, required, children, className }) {
 
 const inputClass =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100";
+function cleanText(value) {
+  return String(value || "").trim();
+}
+
+function numberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function dateOrNull(value) {
+  const text = cleanText(value);
+  return text || null;
+}
 
 function MultiCheckbox({ options, selected, setSelected }) {
   const toggle = (item) => {
@@ -659,48 +672,119 @@ function Services({ setActive }) {
 function StudentApplication({ setStudents }) {
   const [needs, setNeeds] = useState([]);
   const [submitted, setSubmitted] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    setSubmitted("");
+    setIsSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const age = numberOrNull(form.get("age"));
+
     const record = {
-      id: `STU-${Date.now().toString().slice(-6)}`,
-      name: form.get("name") || "Unnamed student",
-      age: form.get("age") || "",
-      location: form.get("location") || "",
-      language: form.get("language") || "",
-      level: form.get("level") || "",
-      needs,
-      deadline: form.get("deadline") || "",
-      priority: needs.length >= 3 ? "High" : "Medium",
-      status: "Needs review",
-      guardian: form.get("guardian") || "",
-      consent: form.get("consent") === "on",
-      notes: form.get("situation") || "",
-      createdAt: new Date().toISOString(),
+      full_name: cleanText(form.get("name")),
+      age,
+      email: cleanText(form.get("email")),
+      current_location: cleanText(form.get("location")),
+      preferred_language: cleanText(form.get("language")),
+      education_level: cleanText(form.get("level")),
+      support_needs: needs,
+      deadline: dateOrNull(form.get("deadline")),
+      guardian_contact: cleanText(form.get("guardian")),
+      under_18: age !== null ? age < 18 : false,
+      consent_confirmed: form.get("consent") === "on",
+      status: "needs_review",
+      priority: needs.length >= 3 ? "high" : "medium",
+      notes: cleanText(form.get("situation")),
     };
-    setStudents((prev) => [record, ...prev]);
-    setSubmitted("Student intake received. In production, this would save to the secure backend and trigger a coordinator notification.");
-    event.currentTarget.reset();
-    setNeeds([]);
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.from("students").insert(record);
+
+      if (error) {
+        throw error;
+      }
+
+      setStudents((prev) => [
+        {
+          id: `STU-${Date.now().toString().slice(-6)}`,
+          name: record.full_name,
+          age: String(record.age || ""),
+          location: record.current_location,
+          language: record.preferred_language,
+          level: record.education_level,
+          needs: record.support_needs,
+          deadline: record.deadline || "",
+          priority: record.priority,
+          status: "Needs review",
+          guardian: record.guardian_contact,
+          consent: record.consent_confirmed,
+          notes: record.notes,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      setSubmitted(
+        "Student intake received. SafePath Scholars will review the request and follow up if support is available."
+      );
+
+      formElement.reset();
+      setNeeds([]);
+    } catch (error) {
+      console.error("Student intake submission error:", error);
+      setSubmitted(
+        "Something went wrong while submitting the intake form. Please try again or email contact@safepathscholars.org."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <SectionShell eyebrow="Apply for Help" title="Student support intake" subtitle="This form captures enough information to triage the student safely without collecting unnecessary legal or sensitive documents.">
+    <SectionShell
+      eyebrow="Apply for Help"
+      title="Student support intake"
+      subtitle="This form captures enough information to triage the student safely without collecting unnecessary legal or sensitive documents."
+    >
       <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr]">
         <Card>
           <form onSubmit={handleSubmit} className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Full name" required><input name="name" required className={inputClass} /></Input>
-              <Input label="Age" required><input name="age" required className={inputClass} /></Input>
-              <Input label="Email" required><input type="email" name="email" required className={inputClass} /></Input>
-              <Input label="Country or current location" required><input name="location" required className={inputClass} placeholder="Example: Ukraine, Poland, United States" /></Input>
+              <Input label="Full name" required>
+                <input name="name" required className={inputClass} />
+              </Input>
+
+              <Input label="Age" required>
+                <input name="age" required className={inputClass} />
+              </Input>
+
+              <Input label="Email" required>
+                <input type="email" name="email" required className={inputClass} />
+              </Input>
+
+              <Input label="Country or current location" required>
+                <input
+                  name="location"
+                  required
+                  className={inputClass}
+                  placeholder="Example: Ukraine, Poland, United States"
+                />
+              </Input>
+
               <Input label="Preferred language" required>
                 <select name="language" required className={inputClass}>
                   <option value="">Select language</option>
-                  {languages.map((x) => <option key={x}>{x}</option>)}
+                  {languages.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
                 </select>
               </Input>
+
               <Input label="Education level" required>
                 <select name="level" required className={inputClass}>
                   <option value="">Select level</option>
@@ -714,28 +798,54 @@ function StudentApplication({ setStudents }) {
             </div>
 
             <Input label="What help do you need?" required>
-              <MultiCheckbox options={serviceOptions} selected={needs} setSelected={setNeeds} />
+              <MultiCheckbox
+                options={serviceOptions}
+                selected={needs}
+                setSelected={setNeeds}
+              />
             </Input>
 
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Upcoming deadline"><input type="date" name="deadline" className={inputClass} /></Input>
-              <Input label="Parent or guardian contact if under 18"><input name="guardian" className={inputClass} placeholder="Name and email or phone" /></Input>
+              <Input label="Upcoming deadline">
+                <input type="date" name="deadline" className={inputClass} />
+              </Input>
+
+              <Input label="Parent or guardian contact if under 18">
+                <input
+                  name="guardian"
+                  className={inputClass}
+                  placeholder="Name and email or phone"
+                />
+              </Input>
             </div>
 
-            <Input label="Briefly describe your situation and what you need help with" required>
+            <Input
+              label="Briefly describe your situation and what you need help with"
+              required
+            >
               <textarea name="situation" required rows={5} className={inputClass} />
             </Input>
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
               <label className="flex items-start gap-3 text-sm leading-6 text-slate-700">
-                <input type="checkbox" name="consent" required className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600" />
+                <input
+                  type="checkbox"
+                  name="consent"
+                  required
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
                 <span>
-                  I agree to be contacted about educational support. I understand this program does not provide legal, visa, asylum, immigration, emergency relocation, or financial advice.
+                  I agree to be contacted about educational support. I understand
+                  this program does not provide legal, visa, asylum, immigration,
+                  emergency relocation, or financial advice.
                 </span>
               </label>
             </div>
 
-            <Button type="submit" className="w-full">Submit student intake</Button>
+            <Button type="submit" className="w-full">
+              {isSubmitting ? "Submitting..." : "Submit student intake"}
+            </Button>
+
             <Toast message={submitted} />
           </form>
         </Card>
@@ -743,16 +853,28 @@ function StudentApplication({ setStudents }) {
         <aside className="space-y-6">
           <Card>
             <ShieldCheck className="mb-4 h-8 w-8 text-emerald-700" />
-            <h3 className="text-xl font-black text-slate-950">Google Forms fallback</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Google Forms fallback
+            </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              For the first pilot, this page can link directly to Google Forms while the backend is being built.
+              If the website form is temporarily unavailable, students may use
+              the backup Google Form.
             </p>
-            <a className="mt-5 inline-flex text-sm font-bold text-emerald-700" href={googleFormLinks.student}>Open student intake form</a>
+            <a
+              className="mt-5 inline-flex text-sm font-bold text-emerald-700"
+              href={googleFormLinks.student}
+            >
+              Open student intake form
+            </a>
           </Card>
+
           <Card>
-            <h3 className="text-xl font-black text-slate-950">Backend action</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Backend action
+            </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              In production: save to Student table, assign status Needs Review, calculate urgency from deadline, and notify the coordinator by email.
+              Submissions are saved to the students table with needs_review
+              status for admin review.
             </p>
           </Card>
         </aside>
