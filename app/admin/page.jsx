@@ -187,6 +187,17 @@ export default async function AdminPage() {
               message.status,
             ])}
           />
+          <DataTable
+            title="Recent Feedback"
+            headers={["Type", "Email", "Services", "Helpful", "Concern"]}
+            rows={feedback.map((item) => [
+              item.respondent_type,
+              item.email,
+              item.service_used?.join(", "),
+              item.rating_helpfulness,
+              item.concern_reported ? "Yes" : "No",
+            ])}
+          />
         </section>
       </div>
     </main>

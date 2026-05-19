@@ -40,6 +40,7 @@ const navItems = [
   "Apply for Help",
   "Submit Work",
   "Volunteer",
+  "Feedback",
   "Contact",
   "Policies",
 ];
@@ -425,6 +426,7 @@ function App() {
         {active === "Apply for Help" && <StudentApplication {...pageProps} />}
         {active === "Submit Work" && <EssaySubmission {...pageProps} />}
         {active === "Volunteer" && <VolunteerApplication {...pageProps} />}
+        {active === "Feedback" && <FeedbackForm />}
         {active === "Contact" && <Contact {...pageProps} />}
         {active === "Policies" && <Policies setActive={setActive} />}
         {active === "Dashboard" && <Dashboard {...pageProps} />}
@@ -1158,7 +1160,238 @@ function VolunteerApplication({ setVolunteers }) {
     </SectionShell>
   );
 }
+function FeedbackForm() {
+  const [services, setServices] = useState([]);
+  const [submitted, setSubmitted] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSubmitted("");
+    setIsSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const record = {
+      respondent_type: cleanText(form.get("respondent_type")),
+      service_used: services,
+      rating_helpfulness: numberOrNull(form.get("rating_helpfulness")),
+      rating_clarity: numberOrNull(form.get("rating_clarity")),
+      rating_professionalism: numberOrNull(form.get("rating_professionalism")),
+      rating_comfort: numberOrNull(form.get("rating_comfort")),
+      most_helpful: cleanText(form.get("most_helpful")),
+      could_improve: cleanText(form.get("could_improve")),
+      testimonial_permission: cleanText(form.get("testimonial_permission")),
+      testimonial_quote: cleanText(form.get("testimonial_quote")),
+      concern_reported: form.get("concern_reported") === "Yes",
+      follow_up_requested: form.get("follow_up_requested") === "Yes",
+      email: cleanText(form.get("email")),
+    };
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.from("feedback").insert(record);
+
+      if (error) {
+        throw error;
+      }
+
+      setSubmitted(
+        "Feedback received. Thank you for helping improve SafePath Scholars."
+      );
+
+      formElement.reset();
+      setServices([]);
+    } catch (error) {
+      console.error("Feedback submission error:", error);
+      setSubmitted(
+        "Something went wrong while submitting feedback. Please try again or email contact@safepathscholars.org."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <SectionShell
+      eyebrow="Feedback"
+      title="Student, volunteer, and partner feedback"
+      subtitle="Feedback helps SafePath Scholars improve support quality, communication, safety, and operations."
+    >
+      <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr]">
+        <Card>
+          <form onSubmit={handleSubmit} className="grid gap-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <Input label="I am a" required>
+                <select name="respondent_type" required className={inputClass}>
+                  <option value="">Select one</option>
+                  <option>Student</option>
+                  <option>Parent/guardian</option>
+                  <option>Volunteer</option>
+                  <option>Partner organization</option>
+                  <option>Other</option>
+                </select>
+              </Input>
+
+              <Input label="Email, optional">
+                <input type="email" name="email" className={inputClass} />
+              </Input>
+            </div>
+
+            <Input label="Which service did you use or participate in?" required>
+              <MultiCheckbox
+                options={serviceOptions}
+                selected={services}
+                setSelected={setServices}
+              />
+            </Input>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <Input label="Helpfulness rating, 1 to 5" required>
+                <select name="rating_helpfulness" required className={inputClass}>
+                  <option value="">Select rating</option>
+                  {[1, 2, 3, 4, 5].map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </select>
+              </Input>
+
+              <Input label="Clarity rating, 1 to 5" required>
+                <select name="rating_clarity" required className={inputClass}>
+                  <option value="">Select rating</option>
+                  {[1, 2, 3, 4, 5].map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </select>
+              </Input>
+
+              <Input label="Professionalism rating, 1 to 5" required>
+                <select
+                  name="rating_professionalism"
+                  required
+                  className={inputClass}
+                >
+                  <option value="">Select rating</option>
+                  {[1, 2, 3, 4, 5].map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </select>
+              </Input>
+
+              <Input label="Comfort rating, 1 to 5" required>
+                <select name="rating_comfort" required className={inputClass}>
+                  <option value="">Select rating</option>
+                  {[1, 2, 3, 4, 5].map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                </select>
+              </Input>
+            </div>
+
+            <Input label="What was most helpful?" required>
+              <textarea
+                name="most_helpful"
+                required
+                rows={4}
+                className={inputClass}
+              />
+            </Input>
+
+            <Input label="What could be improved?" required>
+              <textarea
+                name="could_improve"
+                required
+                rows={4}
+                className={inputClass}
+              />
+            </Input>
+
+            <Input label="May we use your feedback as a testimonial?" required>
+              <select
+                name="testimonial_permission"
+                required
+                className={inputClass}
+              >
+                <option value="">Select one</option>
+                <option>Yes, anonymously</option>
+                <option>Yes, with first name only</option>
+                <option>No</option>
+              </select>
+            </Input>
+
+            <Input label="Optional testimonial quote">
+              <textarea
+                name="testimonial_quote"
+                rows={3}
+                className={inputClass}
+              />
+            </Input>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <Input label="Are you reporting a concern?" required>
+                <select name="concern_reported" required className={inputClass}>
+                  <option>No</option>
+                  <option>Yes</option>
+                </select>
+              </Input>
+
+              <Input label="Would you like follow-up?" required>
+                <select name="follow_up_requested" required className={inputClass}>
+                  <option>No</option>
+                  <option>Yes</option>
+                </select>
+              </Input>
+            </div>
+
+            <Button type="submit" className="w-full">
+              {isSubmitting ? "Submitting..." : "Submit feedback"}
+            </Button>
+
+            <Toast message={submitted} />
+          </form>
+        </Card>
+
+        <aside className="space-y-6">
+          <Card>
+            <MessageSquare className="mb-4 h-8 w-8 text-emerald-700" />
+            <h3 className="text-xl font-black text-slate-950">
+              Why feedback matters
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Feedback helps identify what is working, what needs improvement,
+              and whether program boundaries are being respected.
+            </p>
+          </Card>
+
+          <Card>
+            <h3 className="text-xl font-black text-slate-950">
+              Google Forms option
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Use this as a fallback if needed.
+            </p>
+            <a
+              className="mt-5 inline-flex text-sm font-bold text-emerald-700"
+              href={googleFormLinks.feedback}
+            >
+              Open feedback form
+            </a>
+          </Card>
+        </aside>
+      </div>
+    </SectionShell>
+  );
+}
 function Contact({ setContacts }) {
   const [submitted, setSubmitted] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
