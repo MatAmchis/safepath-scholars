@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
+import EssayDownloadButton from "./EssayDownloadButton";
 
 function MetricCard({ label, value }) {
   return (
@@ -173,7 +174,11 @@ export default async function AdminPage() {
               essay.student_email,
               essay.document_type,
               essay.deadline,
-              essay.file_path || essay.drive_link || "No file/link",
+              <EssayDownloadButton
+                key={essay.id}
+                filePath={essay.file_path}
+                driveLink={essay.drive_link}
+              />,
               essay.status,
             ])}
           />
