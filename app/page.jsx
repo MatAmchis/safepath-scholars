@@ -887,35 +887,129 @@ function StudentApplication({ setStudents }) {
 
 function EssaySubmission({ setEssays }) {
   const [submitted, setSubmitted] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [fileName, setFileName] = useState("");
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const record = {
-      id: `ESS-${Date.now().toString().slice(-6)}`,
-      student: form.get("student") || "Unnamed student",
-      type: form.get("type") || "Essay",
-      deadline: form.get("deadline") || "",
-      status: "Submitted",
-      assigned: "Unassigned",
-      prompt: form.get("prompt") || "",
-      fileName: fileName || form.get("driveLink") || "No file attached",
-      createdAt: new Date().toISOString(),
-    };
-    setEssays((prev) => [record, ...prev]);
-    setSubmitted("Essay or document received. In production, the file would upload to secure storage and notify the essay lead.");
-    event.currentTarget.reset();
-    setFileName("");
+    setSubmitted("");
+    setIsSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const file = form.get("essayFile");
+
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+
+    let filePath = "";
+
+    try {
+      const supabase = createClient();
+
+      if (file && file.size > 0) {
+        if (!allowedTypes.includes(file.type)) {
+          throw new Error("Only PDF and DOCX files are allowed.");
+        }
+
+        if (file.size > 6 * 1024 * 1024) {
+          throw new Error("File is too large. Maximum file size is 6 MB.");
+        }
+
+        const safeFileName = file.name
+          .replace(/[^a-zA-Z0-9._-]/g, "-")
+          .toLowerCase();
+
+        filePath = `essay-submissions/${Date.now()}-${safeFileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("essay-drafts")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type,
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+      }
+
+      const record = {
+        student_name: cleanText(form.get("student")),
+        student_email: cleanText(form.get("email")),
+        document_type: cleanText(form.get("type")),
+        deadline: dateOrNull(form.get("deadline")),
+        drive_link: cleanText(form.get("driveLink")),
+        prompt: cleanText(form.get("prompt")),
+        notes: cleanText(form.get("notes")),
+        file_path: filePath,
+        integrity_ack: form.get("integrity") === "on",
+        status: "submitted",
+      };
+
+      const { error } = await supabase.from("essay_submissions").insert(record);
+
+      if (error) {
+        throw error;
+      }
+
+      setEssays((prev) => [
+        {
+          id: `ESS-${Date.now().toString().slice(-6)}`,
+          student: record.student_name,
+          type: record.document_type,
+          deadline: record.deadline || "",
+          status: "Submitted",
+          assigned: "Unassigned",
+          prompt: record.prompt,
+          fileName: record.file_path || record.drive_link || "No document provided",
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      setSubmitted(
+        "Essay submission received. SafePath Scholars will review the submission and assign feedback if appropriate."
+      );
+
+      formElement.reset();
+      setFileName("");
+    } catch (error) {
+      console.error("Essay submission error:", error);
+      setSubmitted(
+        `Submission error: ${error?.message || "Something went wrong. Please try again or use the backup Google Form."}`
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <SectionShell eyebrow="Submit Work" title="Essay and document submission portal" subtitle="Students can submit drafts, prompts, deadlines, and links so volunteers can give feedback without ghostwriting.">
+    <SectionShell
+      eyebrow="Submit Work"
+      title="Essay and document submission portal"
+      subtitle="Students can submit prompts, deadlines, and document files so volunteers can give feedback without ghostwriting."
+    >
       <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr]">
         <Card>
           <form onSubmit={handleSubmit} className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Student name" required><input name="student" required className={inputClass} /></Input>
+              <Input label="Student name" required>
+                <input name="student" required className={inputClass} />
+              </Input>
+
+              <Input label="Student email" required>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  className={inputClass}
+                />
+              </Input>
+
               <Input label="Document type" required>
                 <select name="type" required className={inputClass}>
                   <option>Personal statement</option>
@@ -926,23 +1020,92 @@ function EssaySubmission({ setEssays }) {
                   <option>Other application document</option>
                 </select>
               </Input>
-              <Input label="Application or scholarship deadline" required><input name="deadline" type="date" required className={inputClass} /></Input>
-              <Input label="Google Drive or document link"><input name="driveLink" className={inputClass} placeholder="Paste a shareable link if available" /></Input>
+
+              <Input label="Application or scholarship deadline" required>
+                <input
+                  name="deadline"
+                  type="date"
+                  required
+                  className={inputClass}
+                />
+              </Input>
             </div>
-            <Input label="Essay prompt or instructions" required>
-              <textarea name="prompt" required rows={4} className={inputClass} placeholder="Paste the prompt, word limit, and any school-specific instructions." />
-            </Input>
-            <Input label="Upload draft file">
+
+            <Input label="Upload draft file, PDF or DOCX" required>
               <input
                 type="file"
-                className={cn(inputClass, "file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white")}
-                onChange={(e) => setFileName(e.target.files?.[0]?.name || "")}
+                name="essayFile"
+                required
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                className={cn(
+                  inputClass,
+                  "file:mr-4 file:rounded-xl file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+                )}
+                onChange={(event) =>
+                  setFileName(event.target.files?.[0]?.name || "")
+                }
+              />
+              {fileName && (
+                <p className="mt-2 text-xs font-semibold text-slate-500">
+                  Selected file: {fileName}
+                </p>
+              )}
+            </Input>
+
+            <Input label="Google Docs, Drive, or document link, optional backup">
+              <input
+                name="driveLink"
+                className={inputClass}
+                placeholder="Paste a shareable document link if available"
               />
             </Input>
+
+            <Input label="Essay prompt or instructions" required>
+              <textarea
+                name="prompt"
+                required
+                rows={4}
+                className={inputClass}
+                placeholder="Paste the prompt, word limit, and any school-specific instructions."
+              />
+            </Input>
+
+            <Input label="Additional notes for reviewer">
+              <textarea
+                name="notes"
+                rows={3}
+                className={inputClass}
+                placeholder="What kind of feedback would be most helpful?"
+              />
+            </Input>
+
             <div className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-sm leading-7 text-amber-900">
-              Volunteers may provide feedback on clarity, structure, grammar, and authenticity. They may not write the essay or application for the student.
+              Volunteers may provide feedback on clarity, structure, grammar,
+              organization, and authenticity. They may not write, ghostwrite,
+              fabricate, or substantially author the essay or application for the
+              student.
             </div>
-            <Button type="submit" className="w-full">Submit for review</Button>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <label className="flex items-start gap-3 text-sm leading-6 text-slate-700">
+                <input
+                  type="checkbox"
+                  name="integrity"
+                  required
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
+                <span>
+                  I confirm this is my own work and understand SafePath Scholars
+                  may provide feedback but may not write, ghostwrite, fabricate,
+                  or substantially author my essay.
+                </span>
+              </label>
+            </div>
+
+            <Button type="submit" className="w-full">
+              {isSubmitting ? "Submitting..." : "Submit for review"}
+            </Button>
+
             <Toast message={submitted} />
           </form>
         </Card>
@@ -950,18 +1113,30 @@ function EssaySubmission({ setEssays }) {
         <aside className="space-y-6">
           <Card>
             <FileText className="mb-4 h-8 w-8 text-emerald-700" />
-            <h3 className="text-xl font-black text-slate-950">Reviewer workflow</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Private file handling
+            </h3>
             <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-600">
-              <li>Essay lead screens submission.</li>
-              <li>Reviewer is assigned by skill and deadline.</li>
-              <li>Feedback is returned using the editing rubric.</li>
-              <li>Outcome is logged in dashboard.</li>
+              <li>Draft file uploads to private Supabase Storage.</li>
+              <li>File path is saved with the essay submission record.</li>
+              <li>Admins review and assign feedback.</li>
+              <li>Files are not publicly available by URL.</li>
             </ol>
           </Card>
+
           <Card>
-            <h3 className="text-xl font-black text-slate-950">Google Forms option</h3>
-            <p className="mt-3 text-sm leading-7 text-slate-600">Use this fallback during the pilot if the secure file upload backend is not ready.</p>
-            <a className="mt-5 inline-flex text-sm font-bold text-emerald-700" href={googleFormLinks.essay}>Open essay submission form</a>
+            <h3 className="text-xl font-black text-slate-950">
+              Google Forms option
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Use this fallback during the pilot if needed.
+            </p>
+            <a
+              className="mt-5 inline-flex text-sm font-bold text-emerald-700"
+              href={googleFormLinks.essay}
+            >
+              Open essay submission form
+            </a>
           </Card>
         </aside>
       </div>

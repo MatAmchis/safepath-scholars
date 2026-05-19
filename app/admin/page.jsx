@@ -167,12 +167,13 @@ export default async function AdminPage() {
 
           <DataTable
             title="Recent Essay Submissions"
-            headers={["Student", "Email", "Type", "Deadline", "Status"]}
+            headers={["Student", "Email", "Type", "Deadline", "File", "Status"]}
             rows={essays.map((essay) => [
               essay.student_name,
               essay.student_email,
               essay.document_type,
               essay.deadline,
+              essay.file_path || essay.drive_link || "No file/link",
               essay.status,
             ])}
           />
