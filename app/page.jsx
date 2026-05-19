@@ -970,45 +970,108 @@ function EssaySubmission({ setEssays }) {
 function VolunteerApplication({ setVolunteers }) {
   const [skills, setSkills] = useState([]);
   const [submitted, setSubmitted] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    setSubmitted("");
+    setIsSubmitting(true);
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const primaryLanguage = cleanText(form.get("language"));
+
     const record = {
-      id: `VOL-${Date.now().toString().slice(-6)}`,
-      name: form.get("name") || "Unnamed volunteer",
-      school: form.get("school") || "",
-      email: form.get("email") || "",
-      age: form.get("age") || "",
+      full_name: cleanText(form.get("name")),
+      school: cleanText(form.get("school")),
+      email: cleanText(form.get("email")),
+      age: numberOrNull(form.get("age")),
       skills,
-      language: form.get("language") || "",
-      hours: form.get("hours") || "",
-      experience: form.get("experience") || "",
-      status: "Screening",
-      createdAt: new Date().toISOString(),
+      languages: primaryLanguage ? [primaryLanguage] : [],
+      weekly_availability: cleanText(form.get("hours")),
+      experience: cleanText(form.get("experience")),
+      code_of_conduct_ack: true,
+      status: "screening",
     };
-    setVolunteers((prev) => [record, ...prev]);
-    setSubmitted("Volunteer application received. In production, this would start screening, code-of-conduct acknowledgment, and role assignment.");
-    event.currentTarget.reset();
-    setSkills([]);
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase.from("volunteers").insert(record);
+
+      if (error) {
+        throw error;
+      }
+
+      setVolunteers((prev) => [
+        {
+          id: `VOL-${Date.now().toString().slice(-6)}`,
+          name: record.full_name,
+          school: record.school,
+          email: record.email,
+          age: String(record.age || ""),
+          skills: record.skills,
+          language: primaryLanguage,
+          hours: record.weekly_availability,
+          experience: record.experience,
+          status: "Screening",
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      setSubmitted(
+        "Volunteer application received. SafePath Scholars will review your application and follow up if there is a suitable pilot role."
+      );
+
+      formElement.reset();
+      setSkills([]);
+    } catch (error) {
+      console.error("Volunteer application submission error:", error);
+      setSubmitted(
+        "Something went wrong while submitting your volunteer application. Please try again or email volunteer@safepathscholars.org."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <SectionShell eyebrow="Volunteer" title="Volunteer application" subtitle="Recruit tutors, essay reviewers, mentors, operations leads, and workshop volunteers through a serious screening workflow.">
+    <SectionShell
+      eyebrow="Volunteer"
+      title="Volunteer application"
+      subtitle="Recruit tutors, essay reviewers, mentors, operations leads, and workshop volunteers through a serious screening workflow."
+    >
       <div className="grid gap-8 lg:grid-cols-[1fr_0.42fr]">
         <Card>
           <form onSubmit={handleSubmit} className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Full name" required><input name="name" required className={inputClass} /></Input>
-              <Input label="School or university" required><input name="school" required className={inputClass} /></Input>
-              <Input label="Email" required><input type="email" name="email" required className={inputClass} /></Input>
-              <Input label="Age" required><input name="age" required className={inputClass} /></Input>
+              <Input label="Full name" required>
+                <input name="name" required className={inputClass} />
+              </Input>
+
+              <Input label="School or university" required>
+                <input name="school" required className={inputClass} />
+              </Input>
+
+              <Input label="Email" required>
+                <input type="email" name="email" required className={inputClass} />
+              </Input>
+
+              <Input label="Age" required>
+                <input name="age" required className={inputClass} />
+              </Input>
+
               <Input label="Primary language" required>
                 <select name="language" required className={inputClass}>
                   <option value="">Select language</option>
-                  {languages.map((x) => <option key={x}>{x}</option>)}
+                  {languages.map((x) => (
+                    <option key={x}>{x}</option>
+                  ))}
                 </select>
               </Input>
+
               <Input label="Weekly availability" required>
                 <select name="hours" required className={inputClass}>
                   <option value="">Select hours</option>
@@ -1022,23 +1085,43 @@ function VolunteerApplication({ setVolunteers }) {
             </div>
 
             <Input label="Volunteer skills" required>
-              <MultiCheckbox options={volunteerSkills} selected={skills} setSelected={setSkills} />
+              <MultiCheckbox
+                options={volunteerSkills}
+                selected={skills}
+                setSelected={setSkills}
+              />
             </Input>
 
             <Input label="Relevant experience" required>
-              <textarea name="experience" required rows={5} className={inputClass} placeholder="Tutoring, editing, mentoring, SAT experience, language experience, or operations experience." />
+              <textarea
+                name="experience"
+                required
+                rows={5}
+                className={inputClass}
+                placeholder="Tutoring, editing, mentoring, SAT experience, language experience, or operations experience."
+              />
             </Input>
 
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
               <label className="flex items-start gap-3 text-sm leading-6 text-slate-700">
-                <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600" />
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600"
+                />
                 <span>
-                  I agree to follow the Volunteer Code of Conduct, including no legal or visa advice, no essay ghostwriting, confidentiality, respectful communication, and no promises of admission, scholarships, visas, or outcomes.
+                  I agree to follow the Volunteer Code of Conduct, including no
+                  legal or visa advice, no essay ghostwriting, confidentiality,
+                  respectful communication, and no promises of admission,
+                  scholarships, visas, or outcomes.
                 </span>
               </label>
             </div>
 
-            <Button type="submit" className="w-full">Submit volunteer application</Button>
+            <Button type="submit" className="w-full">
+              {isSubmitting ? "Submitting..." : "Submit volunteer application"}
+            </Button>
+
             <Toast message={submitted} />
           </form>
         </Card>
@@ -1046,15 +1129,29 @@ function VolunteerApplication({ setVolunteers }) {
         <aside className="space-y-6">
           <Card>
             <Users className="mb-4 h-8 w-8 text-emerald-700" />
-            <h3 className="text-xl font-black text-slate-950">Recruitment sources</h3>
+            <h3 className="text-xl font-black text-slate-950">
+              Recruitment sources
+            </h3>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              Use Schoolhouse or education Discord communities as a recruitment funnel, then move serious volunteers into this structured application and screening workflow.
+              Use Schoolhouse or education Discord communities as a recruitment
+              funnel, then move serious volunteers into this structured
+              application and screening workflow.
             </p>
           </Card>
+
           <Card>
-            <h3 className="text-xl font-black text-slate-950">Google Forms option</h3>
-            <p className="mt-3 text-sm leading-7 text-slate-600">Use this while you pilot before launching the production backend.</p>
-            <a className="mt-5 inline-flex text-sm font-bold text-emerald-700" href={googleFormLinks.volunteer}>Open volunteer form</a>
+            <h3 className="text-xl font-black text-slate-950">
+              Google Forms option
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Use this as a fallback during the pilot.
+            </p>
+            <a
+              className="mt-5 inline-flex text-sm font-bold text-emerald-700"
+              href={googleFormLinks.volunteer}
+            >
+              Open volunteer form
+            </a>
           </Card>
         </aside>
       </div>
