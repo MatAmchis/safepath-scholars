@@ -1,6 +1,29 @@
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 import EssayDownloadButton from "./EssayDownloadButton";
+import {
+  AdminStatusSelect,
+  EssayReviewerSelect,
+  CreateMatchBox,
+} from "./AdminActionControls";
+
+const STUDENT_STATUS_OPTIONS = [
+  { value: "needs_review", label: "Needs review" },
+  { value: "needs_match", label: "Needs match" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "completed", label: "Completed" },
+  { value: "closed", label: "Closed" },
+];
+
+const VOLUNTEER_STATUS_OPTIONS = [
+  { value: "screening", label: "Screening" },
+  { value: "approved", label: "Approved" },
+  { value: "waitlisted", label: "Waitlisted" },
+  { value: "rejected", label: "Rejected" },
+  { value: "paused", label: "Paused" },
+  { value: "inactive", label: "Inactive" },
+];
 
 function MetricCard({ label, value }) {
   return (
@@ -142,42 +165,72 @@ export default async function AdminPage() {
         </section>
 
         <section className="mt-10 grid gap-8">
+          <CreateMatchBox students={students} volunteers={volunteers} />
+
           <DataTable
             title="Recent Student Intakes"
-            headers={["Name", "Email", "Location", "Needs", "Status"]}
+            headers={["Name", "Email", "Location", "Needs", "Status", "Action"]}
             rows={students.map((student) => [
               student.full_name,
               student.email,
               student.current_location,
               student.support_needs?.join(", "),
               student.status,
+              <AdminStatusSelect
+                key={student.id}
+                action="updateStudentStatus"
+                id={student.id}
+                value={student.status}
+                options={STUDENT_STATUS_OPTIONS}
+              />,
             ])}
           />
 
           <DataTable
             title="Recent Volunteer Applications"
-            headers={["Name", "Email", "School", "Skills", "Status"]}
+            headers={["Name", "Email", "School", "Skills", "Status", "Action"]}
             rows={volunteers.map((volunteer) => [
               volunteer.full_name,
               volunteer.email,
               volunteer.school,
               volunteer.skills?.join(", "),
               volunteer.status,
+              <AdminStatusSelect
+                key={volunteer.id}
+                action="updateVolunteerStatus"
+                id={volunteer.id}
+                value={volunteer.status}
+                options={VOLUNTEER_STATUS_OPTIONS}
+              />,
             ])}
           />
 
           <DataTable
             title="Recent Essay Submissions"
-            headers={["Student", "Email", "Type", "Deadline", "File", "Status"]}
+            headers={[
+              "Student",
+              "Email",
+              "Type",
+              "Deadline",
+              "File",
+              "Reviewer",
+              "Status",
+            ]}
             rows={essays.map((essay) => [
               essay.student_name,
               essay.student_email,
               essay.document_type,
               essay.deadline,
               <EssayDownloadButton
-                key={essay.id}
+                key={`download-${essay.id}`}
                 filePath={essay.file_path}
                 driveLink={essay.drive_link}
+              />,
+              <EssayReviewerSelect
+                key={`reviewer-${essay.id}`}
+                essayId={essay.id}
+                currentVolunteerId={essay.assigned_volunteer_id}
+                volunteers={volunteers}
               />,
               essay.status,
             ])}
