@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "../../lib/supabase/server";
 import EssayDownloadButton from "./EssayDownloadButton";
+import LogoutButton from "./LogoutButton";
 import {
   AdminStatusSelect,
   EssayReviewerSelect,
@@ -60,7 +61,10 @@ function DataTable({ title, headers, rows }) {
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td className="px-5 py-6 text-slate-500" colSpan={headers.length}>
+                <td
+                  className="px-5 py-6 text-slate-500"
+                  colSpan={headers.length}
+                >
                   No records yet.
                 </td>
               </tr>
@@ -70,7 +74,7 @@ function DataTable({ title, headers, rows }) {
                   {row.map((cell, cellIndex) => (
                     <td
                       key={`${index}-${cellIndex}`}
-                      className="max-w-[260px] truncate px-5 py-4 text-slate-700"
+                      className="max-w-[320px] px-5 py-4 align-top text-slate-700"
                     >
                       {cell || "—"}
                     </td>
@@ -109,10 +113,14 @@ export default async function AdminPage() {
           <p className="text-sm font-bold uppercase tracking-[0.25em] text-rose-700">
             Access restricted
           </p>
+
           <h1 className="mt-4 text-3xl font-black">Admin access required</h1>
+
           <p className="mt-4 leading-7 text-slate-600">
-            You are logged in, but this account has not been assigned the admin role yet.
+            You are logged in, but this account has not been assigned the admin
+            role yet.
           </p>
+
           <p className="mt-4 rounded-2xl bg-slate-50 p-4 font-mono text-sm text-slate-700">
             Current email: {user.email}
           </p>
@@ -169,7 +177,9 @@ export default async function AdminPage() {
 
     supabase
       .from("sessions")
-      .select("*, students(full_name), volunteers(full_name), matches(service_track)")
+      .select(
+        "*, students(full_name), volunteers(full_name), matches(service_track)"
+      )
       .order("session_date", { ascending: false })
       .limit(50),
 
@@ -189,6 +199,14 @@ export default async function AdminPage() {
   const sessions = sessionsResult.data || [];
   const applications = applicationsResult.data || [];
 
+  const activeMatches = matches.filter((match) => match.status === "active");
+  const serviceHours = (
+    sessions.reduce(
+      (sum, item) => sum + Number(item.duration_minutes || 0),
+      0
+    ) / 60
+  ).toFixed(1);
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
       <div className="mx-auto max-w-7xl">
@@ -197,20 +215,26 @@ export default async function AdminPage() {
             <p className="text-sm font-bold uppercase tracking-[0.25em] text-emerald-700">
               SafePath Scholars
             </p>
+
             <h1 className="mt-3 text-4xl font-black tracking-tight">
               Admin Dashboard
             </h1>
+
             <p className="mt-3 text-slate-600">
               Welcome, {profile.full_name || profile.email || user.email}.
             </p>
           </div>
 
-          <a
-            href="/"
-            className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 ring-1 ring-slate-200 hover:bg-slate-100"
-          >
-            Back to website
-          </a>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="/"
+              className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 ring-1 ring-slate-200 hover:bg-slate-100"
+            >
+              Back to website
+            </a>
+
+            <LogoutButton />
+          </div>
         </div>
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -219,19 +243,18 @@ export default async function AdminPage() {
           <MetricCard label="Essay submissions" value={essays.length} />
           <MetricCard label="Contact messages" value={contacts.length} />
           <MetricCard label="Feedback records" value={feedback.length} />
-          <MetricCard label="Active matches" value={matches.filter((m) => m.status === "active").length} />
+          <MetricCard label="Active matches" value={activeMatches.length} />
           <MetricCard label="Sessions logged" value={sessions.length} />
-          <MetricCard
-            label="Service hours"
-            value={(sessions.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0) / 60).toFixed(1)}
-          />
+          <MetricCard label="Service hours" value={serviceHours} />
         </section>
 
         <section className="mt-10 grid gap-8">
           <CreateMatchBox students={students} volunteers={volunteers} />
+
           <LogSessionBox matches={matches} />
+
           <ApplicationOutcomeBox students={students} />
-          
+
           <DataTable
             title="Recent Student Intakes"
             headers={["Name", "Email", "Location", "Needs", "Status", "Action"]}
@@ -250,6 +273,7 @@ export default async function AdminPage() {
               />,
             ])}
           />
+
           <DataTable
             title="Active Matches"
             headers={["Student", "Volunteer", "Track", "Status", "Start Date"]}
@@ -264,7 +288,14 @@ export default async function AdminPage() {
 
           <DataTable
             title="Recent Sessions"
-            headers={["Date", "Student", "Volunteer", "Type", "Minutes", "Next Steps"]}
+            headers={[
+              "Date",
+              "Student",
+              "Volunteer",
+              "Type",
+              "Minutes",
+              "Next Steps",
+            ]}
             rows={sessions.map((session) => [
               session.session_date,
               session.students?.full_name,
@@ -277,7 +308,14 @@ export default async function AdminPage() {
 
           <DataTable
             title="Applications and Outcomes"
-            headers={["Student", "Program", "Type", "Deadline", "Submitted", "Outcome"]}
+            headers={[
+              "Student",
+              "Program",
+              "Type",
+              "Deadline",
+              "Submitted",
+              "Outcome",
+            ]}
             rows={applications.map((application) => [
               application.students?.full_name,
               application.institution_or_program,
@@ -348,6 +386,7 @@ export default async function AdminPage() {
               message.status,
             ])}
           />
+
           <DataTable
             title="Recent Feedback"
             headers={["Type", "Email", "Services", "Helpful", "Concern"]}

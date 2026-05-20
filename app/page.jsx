@@ -167,66 +167,9 @@ function usePersistentArray(key, starter) {
   return [value, update];
 }
 
-const seedStudents = [
-  {
-    id: "STU-001",
-    name: "Sample Student A",
-    age: "17",
-    location: "Poland",
-    language: "Ukrainian",
-    level: "High school",
-    needs: ["Essay editing", "Application planning"],
-    deadline: "2026-06-20",
-    priority: "High",
-    status: "Needs match",
-  },
-  {
-    id: "STU-002",
-    name: "Sample Student B",
-    age: "18",
-    location: "United States",
-    language: "English",
-    level: "Gap year",
-    needs: ["SAT Math", "Scholarship search"],
-    deadline: "2026-07-10",
-    priority: "Medium",
-    status: "Active",
-  },
-];
-
-const seedVolunteers = [
-  {
-    id: "VOL-001",
-    name: "Sample Volunteer A",
-    school: "Georgetown University",
-    email: "volunteer@example.org",
-    skills: ["Essay editing", "Application planning", "Mentorship"],
-    language: "English",
-    hours: "2",
-    status: "Approved",
-  },
-  {
-    id: "VOL-002",
-    name: "Sample Volunteer B",
-    school: "Student Tutor Network",
-    email: "mentor@example.org",
-    skills: ["SAT math", "English tutoring"],
-    language: "Ukrainian",
-    hours: "1",
-    status: "Screening",
-  },
-];
-
-const seedEssays = [
-  {
-    id: "ESS-001",
-    student: "Sample Student A",
-    type: "Personal statement",
-    deadline: "2026-06-20",
-    status: "Submitted",
-    assigned: "Unassigned",
-  },
-];
+const seedStudents = [];
+const seedVolunteers = [];
+const seedEssays = [];
 
 function SectionShell({ children, eyebrow, title, subtitle, className }) {
   return (
@@ -429,7 +372,6 @@ function App() {
         {active === "Feedback" && <FeedbackForm />}
         {active === "Contact" && <Contact {...pageProps} />}
         {active === "Policies" && <Policies setActive={setActive} />}
-        {active === "Dashboard" && <Dashboard {...pageProps} />}
       </main>
 
       <footer className="border-t border-slate-200 bg-white">
@@ -474,9 +416,9 @@ function App() {
 
 function Home({ setActive, totals }) {
   const stats = [
-    [totals.students, "Student records"],
-    [totals.volunteers, "Volunteer records"],
-    [totals.essays, "Essay submissions"],
+    ["Open", "Student intake"],
+    ["Open", "Volunteer recruitment"],
+    ["Private", "Student records"],
     ["4", "Core service tracks"],
   ];
 
