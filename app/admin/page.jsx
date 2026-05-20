@@ -6,6 +6,10 @@ import {
   EssayReviewerSelect,
   CreateMatchBox,
 } from "./AdminActionControls";
+import {
+  LogSessionBox,
+  ApplicationOutcomeBox,
+} from "./SessionOutcomeControls";
 
 const STUDENT_STATUS_OPTIONS = [
   { value: "needs_review", label: "Needs review" },
@@ -117,20 +121,73 @@ export default async function AdminPage() {
     );
   }
 
-  const [studentsResult, volunteersResult, essaysResult, contactsResult, feedbackResult] =
-    await Promise.all([
-      supabase.from("students").select("*").order("created_at", { ascending: false }).limit(20),
-      supabase.from("volunteers").select("*").order("created_at", { ascending: false }).limit(20),
-      supabase.from("essay_submissions").select("*").order("created_at", { ascending: false }).limit(20),
-      supabase.from("contact_messages").select("*").order("created_at", { ascending: false }).limit(20),
-      supabase.from("feedback").select("*").order("created_at", { ascending: false }).limit(20),
-    ]);
+  const [
+    studentsResult,
+    volunteersResult,
+    essaysResult,
+    contactsResult,
+    feedbackResult,
+    matchesResult,
+    sessionsResult,
+    applicationsResult,
+  ] = await Promise.all([
+    supabase
+      .from("students")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("volunteers")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("essay_submissions")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("contact_messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20),
+
+    supabase
+      .from("feedback")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20),
+
+    supabase
+      .from("matches")
+      .select("*, students(full_name, email), volunteers(full_name, email)")
+      .order("created_at", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("sessions")
+      .select("*, students(full_name), volunteers(full_name), matches(service_track)")
+      .order("session_date", { ascending: false })
+      .limit(50),
+
+    supabase
+      .from("applications")
+      .select("*, students(full_name, email)")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
   const students = studentsResult.data || [];
   const volunteers = volunteersResult.data || [];
   const essays = essaysResult.data || [];
   const contacts = contactsResult.data || [];
   const feedback = feedbackResult.data || [];
+  const matches = matchesResult.data || [];
+  const sessions = sessionsResult.data || [];
+  const applications = applicationsResult.data || [];
 
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
@@ -156,17 +213,25 @@ export default async function AdminPage() {
           </a>
         </div>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Student intakes" value={students.length} />
           <MetricCard label="Volunteer applications" value={volunteers.length} />
           <MetricCard label="Essay submissions" value={essays.length} />
           <MetricCard label="Contact messages" value={contacts.length} />
           <MetricCard label="Feedback records" value={feedback.length} />
+          <MetricCard label="Active matches" value={matches.filter((m) => m.status === "active").length} />
+          <MetricCard label="Sessions logged" value={sessions.length} />
+          <MetricCard
+            label="Service hours"
+            value={(sessions.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0) / 60).toFixed(1)}
+          />
         </section>
 
         <section className="mt-10 grid gap-8">
           <CreateMatchBox students={students} volunteers={volunteers} />
-
+          <LogSessionBox matches={matches} />
+          <ApplicationOutcomeBox students={students} />
+          
           <DataTable
             title="Recent Student Intakes"
             headers={["Name", "Email", "Location", "Needs", "Status", "Action"]}
@@ -183,6 +248,43 @@ export default async function AdminPage() {
                 value={student.status}
                 options={STUDENT_STATUS_OPTIONS}
               />,
+            ])}
+          />
+          <DataTable
+            title="Active Matches"
+            headers={["Student", "Volunteer", "Track", "Status", "Start Date"]}
+            rows={matches.map((match) => [
+              match.students?.full_name,
+              match.volunteers?.full_name,
+              match.service_track,
+              match.status,
+              match.start_date,
+            ])}
+          />
+
+          <DataTable
+            title="Recent Sessions"
+            headers={["Date", "Student", "Volunteer", "Type", "Minutes", "Next Steps"]}
+            rows={sessions.map((session) => [
+              session.session_date,
+              session.students?.full_name,
+              session.volunteers?.full_name,
+              session.service_type,
+              session.duration_minutes,
+              session.next_steps,
+            ])}
+          />
+
+          <DataTable
+            title="Applications and Outcomes"
+            headers={["Student", "Program", "Type", "Deadline", "Submitted", "Outcome"]}
+            rows={applications.map((application) => [
+              application.students?.full_name,
+              application.institution_or_program,
+              application.application_type,
+              application.deadline,
+              application.submitted ? "Yes" : "No",
+              application.outcome,
             ])}
           />
 

@@ -164,6 +164,83 @@ export async function POST(request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "logSession") {
+      const matchId = String(body?.matchId || "");
+      const sessionDate = String(body?.sessionDate || "");
+      const durationMinutes = Number(body?.durationMinutes || 0);
+      const serviceType = String(body?.serviceType || "").trim();
+      const sessionNotes = String(body?.sessionNotes || "").trim();
+      const nextSteps = String(body?.nextSteps || "").trim();
+
+      if (!matchId || !sessionDate || !durationMinutes || !serviceType) {
+        return NextResponse.json(
+          { error: "Match, date, duration, and service type are required." },
+          { status: 400 }
+        );
+      }
+
+      const { data: match, error: matchLookupError } = await supabase
+        .from("matches")
+        .select("id, student_id, volunteer_id")
+        .eq("id", matchId)
+        .single();
+
+      if (matchLookupError || !match) {
+        return NextResponse.json(
+          { error: "Match not found." },
+          { status: 404 }
+        );
+      }
+
+      const { error } = await supabase.from("sessions").insert({
+        match_id: match.id,
+        student_id: match.student_id,
+        volunteer_id: match.volunteer_id,
+        session_date: sessionDate,
+        duration_minutes: durationMinutes,
+        service_type: serviceType,
+        session_notes: sessionNotes,
+        next_steps: nextSteps,
+      });
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "createApplicationOutcome") {
+      const studentId = String(body?.studentId || "");
+      const institutionOrProgram = String(body?.institutionOrProgram || "").trim();
+      const applicationType = String(body?.applicationType || "").trim();
+      const deadline = String(body?.deadline || "") || null;
+      const submitted = Boolean(body?.submitted);
+      const submittedDate = String(body?.submittedDate || "") || null;
+      const outcome = String(body?.outcome || "").trim();
+      const notes = String(body?.notes || "").trim();
+
+      if (!studentId || !institutionOrProgram) {
+        return NextResponse.json(
+          { error: "Student and institution/program are required." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase.from("applications").insert({
+        student_id: studentId,
+        institution_or_program: institutionOrProgram,
+        application_type: applicationType,
+        deadline,
+        submitted,
+        submitted_date: submittedDate,
+        outcome,
+        notes,
+      });
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json(
       { error: "Unknown admin action." },
       { status: 400 }
