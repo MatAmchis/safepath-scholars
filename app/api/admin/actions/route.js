@@ -10,6 +10,8 @@ const STUDENT_STATUSES = [
   "closed",
 ];
 
+const STUDENT_PRIORITIES = ["low", "medium", "high", "urgent"];
+
 const VOLUNTEER_STATUSES = [
   "screening",
   "approved",
@@ -17,6 +19,14 @@ const VOLUNTEER_STATUSES = [
   "rejected",
   "paused",
   "inactive",
+];
+
+const ESSAY_STATUSES = [
+  "submitted",
+  "assigned",
+  "in_review",
+  "feedback_returned",
+  "closed",
 ];
 
 export async function POST(request) {
@@ -81,6 +91,48 @@ export async function POST(request) {
       return NextResponse.json({ ok: true });
     }
 
+    if (action === "updateStudentPriority") {
+      const id = String(body?.id || "");
+      const priority = String(body?.priority || "");
+
+      if (!id || !STUDENT_PRIORITIES.includes(priority)) {
+        return NextResponse.json(
+          { error: "Invalid student priority update." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase
+        .from("students")
+        .update({ priority })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "updateStudentNotes") {
+      const id = String(body?.id || "");
+      const notes = String(body?.notes || "").trim();
+
+      if (!id) {
+        return NextResponse.json(
+          { error: "Missing student ID." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase
+        .from("students")
+        .update({ admin_notes: notes })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
     if (action === "updateVolunteerStatus") {
       const id = String(body?.id || "");
       const status = String(body?.status || "");
@@ -95,6 +147,69 @@ export async function POST(request) {
       const { error } = await supabase
         .from("volunteers")
         .update({ status })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "updateVolunteerNotes") {
+      const id = String(body?.id || "");
+      const notes = String(body?.notes || "").trim();
+
+      if (!id) {
+        return NextResponse.json(
+          { error: "Missing volunteer ID." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase
+        .from("volunteers")
+        .update({ admin_notes: notes })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "updateEssayStatus") {
+      const id = String(body?.id || "");
+      const status = String(body?.status || "");
+
+      if (!id || !ESSAY_STATUSES.includes(status)) {
+        return NextResponse.json(
+          { error: "Invalid essay status update." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase
+        .from("essay_submissions")
+        .update({ status })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "updateEssayNotes") {
+      const id = String(body?.id || "");
+      const notes = String(body?.notes || "").trim();
+
+      if (!id) {
+        return NextResponse.json(
+          { error: "Missing essay ID." },
+          { status: 400 }
+        );
+      }
+
+      const { error } = await supabase
+        .from("essay_submissions")
+        .update({ admin_notes: notes })
         .eq("id", id);
 
       if (error) throw error;
@@ -210,7 +325,9 @@ export async function POST(request) {
 
     if (action === "createApplicationOutcome") {
       const studentId = String(body?.studentId || "");
-      const institutionOrProgram = String(body?.institutionOrProgram || "").trim();
+      const institutionOrProgram = String(
+        body?.institutionOrProgram || ""
+      ).trim();
       const applicationType = String(body?.applicationType || "").trim();
       const deadline = String(body?.deadline || "") || null;
       const submitted = Boolean(body?.submitted);

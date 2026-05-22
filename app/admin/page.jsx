@@ -4,6 +4,8 @@ import EssayDownloadButton from "./EssayDownloadButton";
 import LogoutButton from "./LogoutButton";
 import {
   AdminStatusSelect,
+  AdminPrioritySelect,
+  AdminNotesBox,
   EssayReviewerSelect,
   CreateMatchBox,
 } from "./AdminActionControls";
@@ -28,6 +30,13 @@ const VOLUNTEER_STATUS_OPTIONS = [
   { value: "rejected", label: "Rejected" },
   { value: "paused", label: "Paused" },
   { value: "inactive", label: "Inactive" },
+];
+const ESSAY_STATUS_OPTIONS = [
+  { value: "submitted", label: "Submitted" },
+  { value: "assigned", label: "Assigned" },
+  { value: "in_review", label: "In review" },
+  { value: "feedback_returned", label: "Feedback returned" },
+  { value: "closed", label: "Closed" },
 ];
 
 function MetricCard({ label, value }) {
@@ -257,19 +266,38 @@ export default async function AdminPage() {
 
           <DataTable
             title="Recent Student Intakes"
-            headers={["Name", "Email", "Location", "Needs", "Status", "Action"]}
+            headers={[
+              "Name",
+              "Email",
+              "Location",
+              "Needs",
+              "Status",
+              "Priority",
+              "Internal Notes",
+            ]}
             rows={students.map((student) => [
               student.full_name,
               student.email,
               student.current_location,
               student.support_needs?.join(", "),
-              student.status,
               <AdminStatusSelect
-                key={student.id}
+                key={`status-${student.id}`}
                 action="updateStudentStatus"
                 id={student.id}
                 value={student.status}
                 options={STUDENT_STATUS_OPTIONS}
+              />,
+              <AdminPrioritySelect
+                key={`priority-${student.id}`}
+                id={student.id}
+                value={student.priority}
+              />,
+              <AdminNotesBox
+                key={`notes-${student.id}`}
+                action="updateStudentNotes"
+                id={student.id}
+                value={student.admin_notes}
+                placeholder="Internal notes, triage, follow-up, urgency, risk flags."
               />,
             ])}
           />
@@ -328,19 +356,32 @@ export default async function AdminPage() {
 
           <DataTable
             title="Recent Volunteer Applications"
-            headers={["Name", "Email", "School", "Skills", "Status", "Action"]}
+            headers={[
+              "Name",
+              "Email",
+              "School",
+              "Skills",
+              "Status",
+              "Internal Notes",
+            ]}
             rows={volunteers.map((volunteer) => [
               volunteer.full_name,
               volunteer.email,
               volunteer.school,
               volunteer.skills?.join(", "),
-              volunteer.status,
               <AdminStatusSelect
-                key={volunteer.id}
+                key={`status-${volunteer.id}`}
                 action="updateVolunteerStatus"
                 id={volunteer.id}
                 value={volunteer.status}
                 options={VOLUNTEER_STATUS_OPTIONS}
+              />,
+              <AdminNotesBox
+                key={`notes-${volunteer.id}`}
+                action="updateVolunteerNotes"
+                id={volunteer.id}
+                value={volunteer.admin_notes}
+                placeholder="Screening notes, strengths, concerns, assignment ideas."
               />,
             ])}
           />
@@ -355,6 +396,7 @@ export default async function AdminPage() {
               "File",
               "Reviewer",
               "Status",
+              "Internal Notes",
             ]}
             rows={essays.map((essay) => [
               essay.student_name,
@@ -372,7 +414,20 @@ export default async function AdminPage() {
                 currentVolunteerId={essay.assigned_volunteer_id}
                 volunteers={volunteers}
               />,
-              essay.status,
+              <AdminStatusSelect
+                key={`status-${essay.id}`}
+                action="updateEssayStatus"
+                id={essay.id}
+                value={essay.status}
+                options={ESSAY_STATUS_OPTIONS}
+              />,
+              <AdminNotesBox
+                key={`notes-${essay.id}`}
+                action="updateEssayNotes"
+                id={essay.id}
+                value={essay.admin_notes}
+                placeholder="Reviewer notes, assignment notes, quality concerns, next action."
+              />,
             ])}
           />
 

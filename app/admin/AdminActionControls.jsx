@@ -70,7 +70,106 @@ export function AdminStatusSelect({ action, id, value, options }) {
     </div>
   );
 }
+export function AdminPrioritySelect({ id, value }) {
+  const router = useRouter();
+  const [currentValue, setCurrentValue] = useState(value || "medium");
+  const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
+  async function handleChange(event) {
+    const nextValue = event.target.value;
+    setCurrentValue(nextValue);
+    setMessage("");
+    setIsSaving(true);
+
+    try {
+      await runAdminAction({
+        action: "updateStudentPriority",
+        id,
+        priority: nextValue,
+      });
+
+      setMessage("Saved");
+      router.refresh();
+    } catch (error) {
+      setMessage(error.message || "Error");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex min-w-[150px] flex-col gap-1">
+      <select
+        value={currentValue}
+        onChange={handleChange}
+        disabled={isSaving}
+        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 disabled:opacity-60"
+      >
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="urgent">Urgent</option>
+      </select>
+
+      {message && (
+        <p className="text-[11px] font-semibold text-slate-500">{message}</p>
+      )}
+    </div>
+  );
+}
+
+export function AdminNotesBox({ action, id, value, placeholder }) {
+  const router = useRouter();
+  const [notes, setNotes] = useState(value || "");
+  const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleSave() {
+    setMessage("");
+    setIsSaving(true);
+
+    try {
+      await runAdminAction({
+        action,
+        id,
+        notes,
+      });
+
+      setMessage("Saved");
+      router.refresh();
+    } catch (error) {
+      setMessage(error.message || "Error");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex min-w-[240px] flex-col gap-2">
+      <textarea
+        value={notes}
+        onChange={(event) => setNotes(event.target.value)}
+        rows={3}
+        placeholder={placeholder || "Internal admin notes"}
+        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold leading-5 text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+      />
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isSaving}
+        className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isSaving ? "Saving..." : "Save notes"}
+      </button>
+
+      {message && (
+        <p className="text-[11px] font-semibold text-slate-500">{message}</p>
+      )}
+    </div>
+  );
+}
 export function EssayReviewerSelect({ essayId, currentVolunteerId, volunteers }) {
   const router = useRouter();
   const [volunteerId, setVolunteerId] = useState(currentVolunteerId || "");
