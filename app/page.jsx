@@ -250,6 +250,25 @@ function dateOrNull(value) {
   return text || null;
 }
 
+async function sendNotification(type, payload) {
+  try {
+    const response = await fetch("/api/notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type, payload }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      console.error("Notification failed:", data?.error || response.statusText);
+    }
+  } catch (error) {
+    console.error("Notification request failed:", error);
+  }
+}
+
 function MultiCheckbox({ options, selected, setSelected }) {
   const toggle = (item) => {
     setSelected(selected.includes(item) ? selected.filter((x) => x !== item) : [...selected, item]);
@@ -653,6 +672,20 @@ function StudentApplication({ setStudents }) {
         throw error;
       }
 
+      await sendNotification("student", {
+        name: record.full_name,
+        email: record.email,
+        age: record.age,
+        location: record.current_location,
+        language: record.preferred_language,
+        educationLevel: record.education_level,
+        supportNeeds: record.support_needs,
+        deadline: record.deadline,
+        under18: record.under_18,
+        priority: record.priority,
+        notes: record.notes,
+      });
+
       setStudents((prev) => [
         {
           id: `STU-${Date.now().toString().slice(-6)}`,
@@ -898,6 +931,18 @@ function EssaySubmission({ setEssays }) {
         throw error;
       }
 
+      await sendNotification("essay", {
+        studentName: record.student_name,
+        studentEmail: record.student_email,
+        documentType: record.document_type,
+        deadline: record.deadline,
+        filePath: record.file_path,
+        driveLink: record.drive_link,
+        prompt: record.prompt,
+        notes: record.notes,
+        integrityAck: record.integrity_ack,
+      });
+
       setEssays((prev) => [
         {
           id: `ESS-${Date.now().toString().slice(-6)}`,
@@ -1123,6 +1168,17 @@ function VolunteerApplication({ setVolunteers }) {
         throw error;
       }
 
+      await sendNotification("volunteer", {
+        name: record.full_name,
+        email: record.email,
+        school: record.school,
+        age: record.age,
+        skills: record.skills,
+        languages: record.languages,
+        weeklyAvailability: record.weekly_availability,
+        experience: record.experience,
+      });
+
       setVolunteers((prev) => [
         {
           id: `VOL-${Date.now().toString().slice(-6)}`,
@@ -1314,6 +1370,21 @@ function FeedbackForm() {
       if (error) {
         throw error;
       }
+
+      await sendNotification("feedback", {
+        respondentType: record.respondent_type,
+        email: record.email,
+        services: record.service_used,
+        ratingHelpfulness: record.rating_helpfulness,
+        ratingClarity: record.rating_clarity,
+        ratingProfessionalism: record.rating_professionalism,
+        ratingComfort: record.rating_comfort,
+        mostHelpful: record.most_helpful,
+        couldImprove: record.could_improve,
+        testimonialPermission: record.testimonial_permission,
+        concernReported: record.concern_reported,
+        followUpRequested: record.follow_up_requested,
+      });
 
       setSubmitted(
         "Feedback received. Thank you for helping improve SafePath Scholars."
@@ -1538,6 +1609,14 @@ function Contact({ setContacts }) {
       if (error) {
         throw error;
       }
+
+      await sendNotification("contact", {
+        name: record.name,
+        email: record.email,
+        inquiryType: record.inquiry_type,
+        organization: record.organization,
+        message: record.message,
+      });
 
       setContacts((prev) => [
         {
@@ -1907,5 +1986,4 @@ function BackendBlueprint() {
     </Card>
   );
 }
-
 export default App;
