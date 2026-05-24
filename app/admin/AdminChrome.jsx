@@ -3,6 +3,7 @@ import LogoutButton from "./LogoutButton";
 const adminLinks = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/status-guide", label: "Status Guide" },
+  { href: "/admin/volunteer-onboarding", label: "Volunteer Onboarding" },
   { href: "/admin/students", label: "Students" },
   { href: "/admin/volunteers", label: "Volunteers" },
   { href: "/admin/essays", label: "Essays" },
