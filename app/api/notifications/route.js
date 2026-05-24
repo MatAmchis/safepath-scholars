@@ -1,22 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL;
-const NOTIFICATION_FROM =
-  process.env.NOTIFICATION_FROM || "SafePath Scholars <onboarding@resend.dev>";
-
-const NOTIFICATION_TYPES = {
-  contact: "New Contact Message",
-  student: "New Student Intake",
-  volunteer: "New Volunteer Application",
-  essay: "New Essay Submission",
-  feedback: "New Feedback Submission",
-};
-
 function escapeHtml(value) {
-  return String(value || "")
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -24,219 +10,353 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function humanizeKey(key) {
+  return String(key)
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function formatValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "—";
+  }
+
   if (Array.isArray(value)) {
-    return value.length ? value.join(", ") : "—";
+    return value.length ? value.map(escapeHtml).join(", ") : "—";
   }
 
-  if (value === true) return "Yes";
-  if (value === false) return "No";
-
-  return value ? String(value) : "—";
-}
-
-function formatRows(fields) {
-  return fields
-    .map(
-      ([label, value]) => `
-        <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 700; color: #0f172a; width: 220px;">
-            ${escapeHtml(label)}
-          </td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; color: #334155;">
-            ${escapeHtml(formatValue(value))}
-          </td>
-        </tr>
-      `
-    )
-    .join("");
-}
-
-function getNotificationContent(type, payload) {
-  if (type === "contact") {
-    return {
-      subject: "SafePath Scholars: New contact message",
-      heading: "New contact message",
-      fields: [
-        ["Name", payload.name],
-        ["Email", payload.email],
-        ["Inquiry type", payload.inquiryType],
-        ["Organization", payload.organization],
-        ["Message", payload.message],
-      ],
-    };
+  if (typeof value === "object") {
+    return `<pre style="white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">${escapeHtml(
+      JSON.stringify(value, null, 2)
+    )}</pre>`;
   }
+
+  return escapeHtml(value);
+}
+
+function buildPayloadTable(payload) {
+  const entries = Object.entries(payload || {}).filter(
+    ([key]) => !["file", "attachment"].includes(key)
+  );
+
+  if (entries.length === 0) {
+    return "<p>No submitted fields were included.</p>";
+  }
+
+  return `
+    <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+      <tbody>
+        ${entries
+          .map(
+            ([key, value]) => `
+              <tr>
+                <td style="width:34%;vertical-align:top;padding:10px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:700;color:#334155;">
+                  ${escapeHtml(humanizeKey(key))}
+                </td>
+                <td style="vertical-align:top;padding:10px;border:1px solid #e2e8f0;color:#334155;">
+                  ${formatValue(value)}
+                </td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function getSubmissionLabel(type) {
+  const labels = {
+    contact: "New contact message",
+    student: "New student intake",
+    volunteer: "New volunteer application",
+    essay: "New essay submission",
+    feedback: "New feedback submission",
+  };
+
+  return labels[type] || "New SafePath Scholars submission";
+}
+
+function getRecipientEmail(type, payload) {
+  const candidatesByType = {
+    contact: ["email", "contact_email", "sender_email"],
+    student: ["email", "student_email", "contact_email"],
+    volunteer: ["email", "volunteer_email", "contact_email"],
+    essay: ["email", "student_email", "contact_email"],
+    feedback: ["email", "contact_email"],
+  };
+
+  const candidates = candidatesByType[type] || ["email", "contact_email"];
+
+  for (const key of candidates) {
+    const value = payload?.[key];
+
+    if (typeof value === "string" && value.includes("@")) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function getRecipientName(payload) {
+  const candidates = [
+    "full_name",
+    "name",
+    "student_name",
+    "volunteer_name",
+    "parent_guardian_name",
+  ];
+
+  for (const key of candidates) {
+    const value = payload?.[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return "";
+}
+
+function buildAdminEmail({ type, payload }) {
+  const label = getSubmissionLabel(type);
+
+  return {
+    subject: `SafePath Scholars: ${label}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+        <h1 style="margin:0 0 8px;font-size:24px;">${escapeHtml(label)}</h1>
+
+        <p style="margin:0 0 16px;color:#475569;">
+          A new submission was received through the SafePath Scholars website.
+        </p>
+
+        ${buildPayloadTable(payload)}
+
+        <p style="margin-top:20px;color:#64748b;font-size:13px;">
+          This is an automated admin notification from SafePath Scholars.
+        </p>
+      </div>
+    `,
+  };
+}
+
+function buildConfirmationEmail({ type, payload }) {
+  const name = getRecipientName(payload);
+  const greeting = name ? `Hi ${escapeHtml(name)},` : "Hi,";
+
+  const baseFooter = `
+    <p style="margin-top:20px;color:#64748b;font-size:13px;">
+      SafePath Scholars provides educational support only. We do not provide legal, visa,
+      asylum, immigration, relocation, financial, medical, emergency, or mental health advice.
+    </p>
+  `;
 
   if (type === "student") {
     return {
-      subject: "SafePath Scholars: New student intake",
-      heading: "New student intake",
-      fields: [
-        ["Student name", payload.name],
-        ["Email", payload.email],
-        ["Age", payload.age],
-        ["Location", payload.location],
-        ["Preferred language", payload.language],
-        ["Education level", payload.educationLevel],
-        ["Support needs", payload.supportNeeds],
-        ["Deadline", payload.deadline],
-        ["Under 18", payload.under18],
-        ["Priority", payload.priority],
-        ["Notes", payload.notes],
-      ],
+      subject: "SafePath Scholars: We received your student intake form",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+          <h1 style="margin:0 0 12px;font-size:24px;">Student intake received</h1>
+
+          <p>${greeting}</p>
+
+          <p>
+            Thank you for contacting SafePath Scholars. We received your student intake form.
+            Our team will review your information and follow up if we are able to offer support
+            or need more details.
+          </p>
+
+          <p>
+            Submitting this form does not guarantee tutoring, essay feedback, mentorship,
+            application support, scholarships, admission, relocation, legal help, or any other outcome.
+          </p>
+
+          ${baseFooter}
+        </div>
+      `,
     };
   }
 
   if (type === "volunteer") {
     return {
-      subject: "SafePath Scholars: New volunteer application",
-      heading: "New volunteer application",
-      fields: [
-        ["Volunteer name", payload.name],
-        ["Email", payload.email],
-        ["School", payload.school],
-        ["Age", payload.age],
-        ["Skills", payload.skills],
-        ["Languages", payload.languages],
-        ["Weekly availability", payload.weeklyAvailability],
-        ["Experience", payload.experience],
-      ],
+      subject: "SafePath Scholars: We received your volunteer application",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+          <h1 style="margin:0 0 12px;font-size:24px;">Volunteer application received</h1>
+
+          <p>${greeting}</p>
+
+          <p>
+            Thank you for applying to volunteer with SafePath Scholars. We received your
+            volunteer application and will review your experience, availability, skills, and fit.
+          </p>
+
+          <p>
+            If approved, you may receive access to the volunteer portal and be considered for
+            student matches, essay review assignments, tutoring, mentorship, or other educational support roles.
+          </p>
+
+          <p>
+            Submitting an application does not guarantee acceptance or assignment.
+          </p>
+
+          ${baseFooter}
+        </div>
+      `,
     };
   }
 
   if (type === "essay") {
     return {
-      subject: "SafePath Scholars: New essay submission",
-      heading: "New essay submission",
-      fields: [
-        ["Student name", payload.studentName],
-        ["Student email", payload.studentEmail],
-        ["Document type", payload.documentType],
-        ["Deadline", payload.deadline],
-        ["File path", payload.filePath],
-        ["Drive link", payload.driveLink],
-        ["Prompt", payload.prompt],
-        ["Notes", payload.notes],
-        ["Integrity acknowledged", payload.integrityAck],
-      ],
+      subject: "SafePath Scholars: We received your essay submission",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+          <h1 style="margin:0 0 12px;font-size:24px;">Essay submission received</h1>
+
+          <p>${greeting}</p>
+
+          <p>
+            Thank you for submitting your essay or writing draft to SafePath Scholars.
+            We received your file and related information.
+          </p>
+
+          <p>
+            If we are able to review it, feedback will focus on clarity, structure, organization,
+            grammar, and authenticity. You must remain the author of your work.
+          </p>
+
+          <p>
+            SafePath Scholars does not ghostwrite essays, fabricate experiences, or guarantee
+            admissions, scholarships, or application outcomes.
+          </p>
+
+          ${baseFooter}
+        </div>
+      `,
     };
   }
 
   if (type === "feedback") {
     return {
-      subject: "SafePath Scholars: New feedback submission",
-      heading: "New feedback submission",
-      fields: [
-        ["Respondent type", payload.respondentType],
-        ["Email", payload.email],
-        ["Services used", payload.services],
-        ["Helpfulness", payload.ratingHelpfulness],
-        ["Clarity", payload.ratingClarity],
-        ["Professionalism", payload.ratingProfessionalism],
-        ["Comfort", payload.ratingComfort],
-        ["Most helpful", payload.mostHelpful],
-        ["Could improve", payload.couldImprove],
-        ["Testimonial permission", payload.testimonialPermission],
-        ["Concern reported", payload.concernReported],
-        ["Follow-up requested", payload.followUpRequested],
-      ],
+      subject: "SafePath Scholars: We received your feedback",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+          <h1 style="margin:0 0 12px;font-size:24px;">Feedback received</h1>
+
+          <p>${greeting}</p>
+
+          <p>
+            Thank you for sharing feedback with SafePath Scholars. We received your message
+            and will use it to improve the program.
+          </p>
+
+          ${baseFooter}
+        </div>
+      `,
     };
   }
 
-  return null;
-}
+  return {
+    subject: "SafePath Scholars: We received your message",
+    html: `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#0f172a;">
+        <h1 style="margin:0 0 12px;font-size:24px;">Message received</h1>
 
-function buildHtml({ heading, fields }) {
-  return `
-    <div style="font-family: Arial, sans-serif; background: #f8fafc; padding: 24px;">
-      <div style="max-width: 720px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden;">
-        <div style="background: #0f172a; color: #ffffff; padding: 22px 26px;">
-          <p style="margin: 0; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #6ee7b7; font-weight: 700;">
-            SafePath Scholars
-          </p>
-          <h1 style="margin: 8px 0 0; font-size: 24px; line-height: 1.3;">
-            ${escapeHtml(heading)}
-          </h1>
-        </div>
+        <p>${greeting}</p>
 
-        <div style="padding: 24px 26px;">
-          <p style="margin: 0 0 18px; color: #475569; line-height: 1.6;">
-            A new submission was received through the SafePath Scholars website.
-          </p>
+        <p>
+          Thank you for contacting SafePath Scholars. We received your message and will review it.
+        </p>
 
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tbody>
-              ${formatRows(fields)}
-            </tbody>
-          </table>
+        <p>
+          If a response is needed, someone from the team will follow up.
+        </p>
 
-          <p style="margin: 22px 0 0; color: #64748b; font-size: 13px; line-height: 1.6;">
-            Review this record in the SafePath Scholars admin dashboard.
-          </p>
-        </div>
+        ${baseFooter}
       </div>
-    </div>
-  `;
+    `,
+  };
 }
 
 export async function POST(request) {
-  if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json(
-      { error: "Missing RESEND_API_KEY environment variable." },
-      { status: 500 }
-    );
-  }
-
-  if (!NOTIFICATION_EMAIL) {
-    return NextResponse.json(
-      { error: "Missing NOTIFICATION_EMAIL environment variable." },
-      { status: 500 }
-    );
-  }
-
-  let body;
-
   try {
-    body = await request.json();
-  } catch {
+    const apiKey = process.env.RESEND_API_KEY;
+    const notificationEmail = process.env.NOTIFICATION_EMAIL;
+    const from = process.env.NOTIFICATION_FROM;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing RESEND_API_KEY." },
+        { status: 500 }
+      );
+    }
+
+    if (!notificationEmail) {
+      return NextResponse.json(
+        { error: "Missing NOTIFICATION_EMAIL." },
+        { status: 500 }
+      );
+    }
+
+    if (!from) {
+      return NextResponse.json(
+        { error: "Missing NOTIFICATION_FROM." },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+    const type = String(body?.type || "").trim();
+    const payload = body?.payload || {};
+
+    if (!type) {
+      return NextResponse.json(
+        { error: "Missing notification type." },
+        { status: 400 }
+      );
+    }
+
+    const resend = new Resend(apiKey);
+
+    const adminEmail = buildAdminEmail({ type, payload });
+
+    const adminResult = await resend.emails.send({
+      from,
+      to: notificationEmail,
+      subject: adminEmail.subject,
+      html: adminEmail.html,
+    });
+
+    const recipientEmail = getRecipientEmail(type, payload);
+
+    let confirmationResult = null;
+
+    if (recipientEmail) {
+      const confirmationEmail = buildConfirmationEmail({ type, payload });
+
+      confirmationResult = await resend.emails.send({
+        from,
+        to: recipientEmail,
+        subject: confirmationEmail.subject,
+        html: confirmationEmail.html,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      adminEmailId: adminResult?.data?.id || null,
+      confirmationEmailId: confirmationResult?.data?.id || null,
+      confirmationRecipient: recipientEmail || null,
+    });
+  } catch (error) {
+    console.error("Notification route error:", error);
+
     return NextResponse.json(
-      { error: "Invalid request body." },
-      { status: 400 }
-    );
-  }
-
-  const type = String(body?.type || "");
-  const payload = body?.payload || {};
-
-  if (!Object.keys(NOTIFICATION_TYPES).includes(type)) {
-    return NextResponse.json(
-      { error: "Invalid notification type." },
-      { status: 400 }
-    );
-  }
-
-  const content = getNotificationContent(type, payload);
-
-  if (!content) {
-    return NextResponse.json(
-      { error: "Could not build notification content." },
-      { status: 400 }
-    );
-  }
-
-  const { error } = await resend.emails.send({
-    from: NOTIFICATION_FROM,
-    to: [NOTIFICATION_EMAIL],
-    subject: content.subject,
-    html: buildHtml(content),
-  });
-
-  if (error) {
-    return NextResponse.json(
-      { error: error.message || "Email send failed." },
+      { error: error.message || "Could not send notification." },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ ok: true });
 }
