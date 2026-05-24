@@ -73,6 +73,20 @@ export function AdminPageShell({
               Back to website
             </a>
 
+            <a
+              href="/volunteer/login"
+              className="rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700"
+            >
+              Volunteer login
+            </a>
+
+            <a
+              href="/volunteer"
+              className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-50"
+            >
+              Volunteer dashboard
+            </a>
+
             <LogoutButton />
           </div>
         </div>
