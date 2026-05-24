@@ -3,6 +3,10 @@ import { createClient } from "../../lib/supabase/server";
 
 const volunteerLinks = [
   { href: "/volunteer", label: "Dashboard" },
+  { href: "/volunteer/essays", label: "Essays" },
+  { href: "/volunteer/matches", label: "Matches" },
+  { href: "/volunteer/sessions", label: "Sessions" },
+  { href: "/volunteer/resources", label: "Resources" },
 ];
 
 async function signOutVolunteer() {
