@@ -1,6 +1,6 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
-
+import AdminExportButton from "../AdminExportButton";
 export default async function FeedbackAdminPage() {
   const { supabase, user, profile, isAdmin } = await getAdmin();
 
@@ -22,6 +22,13 @@ export default async function FeedbackAdminPage() {
       user={user}
       current="/admin/feedback"
     >
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="feedback"
+        label="Export feedback CSV"
+        filename="feedback.csv"
+      />
+    </div>
       <DataTable
         title="Feedback Records"
         headers={[

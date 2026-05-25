@@ -1,3 +1,4 @@
+import AdminExportButton from "../AdminExportButton";
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import {
@@ -28,6 +29,13 @@ export default async function StudentsAdminPage() {
       user={user}
       current="/admin/students"
     >
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="students"
+        label="Export students CSV"
+        filename="students.csv"
+      />
+    </div>
       <DataTable
         title="Student Intakes"
         headers={[

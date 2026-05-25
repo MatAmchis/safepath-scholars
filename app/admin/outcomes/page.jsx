@@ -1,6 +1,7 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import { ApplicationOutcomeBox } from "../SessionOutcomeControls";
+import AdminExportButton from "../AdminExportButton";
 
 export default async function OutcomesAdminPage() {
   const { supabase, user, profile, isAdmin } = await getAdmin();
@@ -31,7 +32,13 @@ export default async function OutcomesAdminPage() {
     >
       <section className="grid gap-8">
         <ApplicationOutcomeBox students={students} />
-
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="applications"
+        label="Export outcomes CSV"
+        filename="applications.csv"
+      />
+    </div>
         <DataTable
           title="Applications and Outcomes"
           headers={["Student", "Program", "Type", "Deadline", "Submitted", "Outcome"]}

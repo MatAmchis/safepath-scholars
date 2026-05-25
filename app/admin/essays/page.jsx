@@ -8,6 +8,7 @@ import {
   EssayReviewerSelect,
 } from "../AdminActionControls";
 import { ESSAY_STATUS_OPTIONS } from "../adminOptions";
+import AdminExportButton from "../AdminExportButton";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -107,7 +108,13 @@ export default async function EssaysPage({ searchParams }) {
           </p>
         </div>
       )}
-
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="essays"
+        label="Export essays CSV"
+        filename="essay_submissions.csv"
+      />
+    </div>
       <DataTable
         title={`Essay Submissions (${essays.length})`}
         headers={[

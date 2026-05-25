@@ -3,6 +3,7 @@ import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import AdminFilters from "../AdminFilters";
 import { AdminStatusSelect, AdminNotesBox } from "../AdminActionControls";
 import { VOLUNTEER_STATUS_OPTIONS } from "../adminOptions";
+import AdminExportButton from "../AdminExportButton";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -78,7 +79,13 @@ export default async function VolunteersPage({ searchParams }) {
           <p className="mt-2 text-sm text-rose-700">{error.message}</p>
         </div>
       )}
-
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="volunteers"
+        label="Export volunteers CSV"
+        filename="volunteers.csv"
+      />
+    </div>
       <DataTable
         title={`Volunteer Applications (${volunteers.length})`}
         headers={["Name", "Email", "School", "Skills", "Status", "Internal Notes"]}

@@ -1,6 +1,7 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import AdminFilters from "../AdminFilters";
+import AdminExportButton from "../AdminExportButton";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -67,7 +68,13 @@ export default async function MessagesPage({ searchParams }) {
           <p className="mt-2 text-sm text-rose-700">{error.message}</p>
         </div>
       )}
-
+    <div className="mb-6 flex justify-end">
+      <AdminExportButton
+        type="messages"
+        label="Export messages CSV"
+        filename="contact_messages.csv"
+      />
+    </div>
       <DataTable
         title={`Contact Messages (${messages.length})`}
         headers={["Name", "Email", "Type", "Message", "Status", "Received"]}
