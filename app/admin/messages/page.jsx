@@ -2,6 +2,7 @@ import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import AdminFilters from "../AdminFilters";
 import AdminExportButton from "../AdminExportButton";
+import { AdminExportGate } from "../AdminRoleControls";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -20,10 +21,10 @@ function includesText(record, query, fields) {
 }
 
 export default async function MessagesPage({ searchParams }) {
-  const { supabase, user, profile, isAdmin } = await getAdmin();
+  const { supabase, user, profile, role, isAdmin } = await getAdmin();
 
   if (!isAdmin) {
-    return <AccessRestricted user={user} />;
+    return <AccessRestricted user={user} profile={profile} />;
   }
 
   const params = await Promise.resolve(searchParams || {});
@@ -60,6 +61,16 @@ export default async function MessagesPage({ searchParams }) {
         showSearch
       />
 
+      <AdminExportGate role={role} type="messages">
+        <div className="mb-6 flex justify-end">
+          <AdminExportButton
+            type="messages"
+            label="Export messages CSV"
+            filename="contact_messages.csv"
+          />
+        </div>
+      </AdminExportGate>
+
       {error && (
         <div className="mb-8 rounded-3xl border border-rose-200 bg-rose-50 p-6">
           <p className="text-sm font-bold text-rose-800">
@@ -68,13 +79,7 @@ export default async function MessagesPage({ searchParams }) {
           <p className="mt-2 text-sm text-rose-700">{error.message}</p>
         </div>
       )}
-    <div className="mb-6 flex justify-end">
-      <AdminExportButton
-        type="messages"
-        label="Export messages CSV"
-        filename="contact_messages.csv"
-      />
-    </div>
+
       <DataTable
         title={`Contact Messages (${messages.length})`}
         headers={["Name", "Email", "Type", "Message", "Status", "Received"]}

@@ -1,9 +1,14 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import AdminFilters from "../AdminFilters";
+import AdminExportButton from "../AdminExportButton";
 import { AdminStatusSelect, AdminNotesBox } from "../AdminActionControls";
 import { VOLUNTEER_STATUS_OPTIONS } from "../adminOptions";
-import AdminExportButton from "../AdminExportButton";
+import {
+  AdminActionGate,
+  AdminExportGate,
+  AdminReadOnlyValue,
+} from "../AdminRoleControls";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -22,10 +27,10 @@ function includesText(record, query, fields) {
 }
 
 export default async function VolunteersPage({ searchParams }) {
-  const { supabase, user, profile, isAdmin } = await getAdmin();
+  const { supabase, user, profile, role, isAdmin } = await getAdmin();
 
   if (!isAdmin) {
-    return <AccessRestricted user={user} />;
+    return <AccessRestricted user={user} profile={profile} />;
   }
 
   const params = await Promise.resolve(searchParams || {});
@@ -71,6 +76,16 @@ export default async function VolunteersPage({ searchParams }) {
         statusOptions={VOLUNTEER_STATUS_OPTIONS}
       />
 
+      <AdminExportGate role={role} type="volunteers">
+        <div className="mb-6 flex justify-end">
+          <AdminExportButton
+            type="volunteers"
+            label="Export volunteers CSV"
+            filename="volunteers.csv"
+          />
+        </div>
+      </AdminExportGate>
+
       {error && (
         <div className="mb-8 rounded-3xl border border-rose-200 bg-rose-50 p-6">
           <p className="text-sm font-bold text-rose-800">
@@ -79,13 +94,7 @@ export default async function VolunteersPage({ searchParams }) {
           <p className="mt-2 text-sm text-rose-700">{error.message}</p>
         </div>
       )}
-    <div className="mb-6 flex justify-end">
-      <AdminExportButton
-        type="volunteers"
-        label="Export volunteers CSV"
-        filename="volunteers.csv"
-      />
-    </div>
+
       <DataTable
         title={`Volunteer Applications (${volunteers.length})`}
         headers={["Name", "Email", "School", "Skills", "Status", "Internal Notes"]}
@@ -94,20 +103,34 @@ export default async function VolunteersPage({ searchParams }) {
           volunteer.email,
           volunteer.school,
           volunteer.skills?.join(", "),
-          <AdminStatusSelect
+          <AdminActionGate
             key={`status-${volunteer.id}`}
+            role={role}
             action="updateVolunteerStatus"
-            id={volunteer.id}
-            value={volunteer.status}
-            options={VOLUNTEER_STATUS_OPTIONS}
-          />,
-          <AdminNotesBox
+            fallback={<AdminReadOnlyValue value={volunteer.status} />}
+          >
+            <AdminStatusSelect
+              action="updateVolunteerStatus"
+              id={volunteer.id}
+              value={volunteer.status}
+              options={VOLUNTEER_STATUS_OPTIONS}
+            />
+          </AdminActionGate>,
+          <AdminActionGate
             key={`notes-${volunteer.id}`}
+            role={role}
             action="updateVolunteerNotes"
-            id={volunteer.id}
-            value={volunteer.admin_notes}
-            placeholder="Screening notes, strengths, concerns, assignment ideas."
-          />,
+            fallback={
+              <AdminReadOnlyValue value={volunteer.admin_notes} multiline />
+            }
+          >
+            <AdminNotesBox
+              action="updateVolunteerNotes"
+              id={volunteer.id}
+              value={volunteer.admin_notes}
+              placeholder="Screening notes, strengths, concerns, assignment ideas."
+            />
+          </AdminActionGate>,
         ])}
       />
     </AdminPageShell>

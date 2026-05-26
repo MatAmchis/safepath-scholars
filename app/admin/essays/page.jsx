@@ -1,6 +1,7 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import AdminFilters from "../AdminFilters";
+import AdminExportButton from "../AdminExportButton";
 import EssayDownloadButton from "../EssayDownloadButton";
 import {
   AdminStatusSelect,
@@ -8,7 +9,11 @@ import {
   EssayReviewerSelect,
 } from "../AdminActionControls";
 import { ESSAY_STATUS_OPTIONS } from "../adminOptions";
-import AdminExportButton from "../AdminExportButton";
+import {
+  AdminActionGate,
+  AdminExportGate,
+  AdminReadOnlyValue,
+} from "../AdminRoleControls";
 
 function includesText(record, query, fields) {
   if (!query) return true;
@@ -27,10 +32,10 @@ function includesText(record, query, fields) {
 }
 
 export default async function EssaysPage({ searchParams }) {
-  const { supabase, user, profile, isAdmin } = await getAdmin();
+  const { supabase, user, profile, role, isAdmin } = await getAdmin();
 
   if (!isAdmin) {
-    return <AccessRestricted user={user} />;
+    return <AccessRestricted user={user} profile={profile} />;
   }
 
   const params = await Promise.resolve(searchParams || {});
@@ -81,6 +86,10 @@ export default async function EssaysPage({ searchParams }) {
     label: volunteer.full_name || volunteer.email || "Unnamed volunteer",
   }));
 
+  const volunteersById = Object.fromEntries(
+    volunteers.map((volunteer) => [volunteer.id, volunteer])
+  );
+
   return (
     <AdminPageShell
       title="Essays"
@@ -98,6 +107,16 @@ export default async function EssaysPage({ searchParams }) {
         reviewerOptions={reviewerOptions}
       />
 
+      <AdminExportGate role={role} type="essays">
+        <div className="mb-6 flex justify-end">
+          <AdminExportButton
+            type="essays"
+            label="Export essays CSV"
+            filename="essay_submissions.csv"
+          />
+        </div>
+      </AdminExportGate>
+
       {(essaysResult.error || volunteersResult.error) && (
         <div className="mb-8 rounded-3xl border border-rose-200 bg-rose-50 p-6">
           <p className="text-sm font-bold text-rose-800">
@@ -108,13 +127,7 @@ export default async function EssaysPage({ searchParams }) {
           </p>
         </div>
       )}
-    <div className="mb-6 flex justify-end">
-      <AdminExportButton
-        type="essays"
-        label="Export essays CSV"
-        filename="essay_submissions.csv"
-      />
-    </div>
+
       <DataTable
         title={`Essay Submissions (${essays.length})`}
         headers={[
@@ -137,26 +150,52 @@ export default async function EssaysPage({ searchParams }) {
             filePath={essay.file_path}
             driveLink={essay.drive_link}
           />,
-          <EssayReviewerSelect
+          <AdminActionGate
             key={`reviewer-${essay.id}`}
-            essayId={essay.id}
-            currentVolunteerId={essay.assigned_volunteer_id}
-            volunteers={volunteers}
-          />,
-          <AdminStatusSelect
+            role={role}
+            action="assignEssayReviewer"
+            fallback={
+              <AdminReadOnlyValue
+                value={
+                  volunteersById[essay.assigned_volunteer_id]?.full_name ||
+                  volunteersById[essay.assigned_volunteer_id]?.email ||
+                  "Unassigned"
+                }
+              />
+            }
+          >
+            <EssayReviewerSelect
+              essayId={essay.id}
+              currentVolunteerId={essay.assigned_volunteer_id}
+              volunteers={volunteers}
+            />
+          </AdminActionGate>,
+          <AdminActionGate
             key={`status-${essay.id}`}
+            role={role}
             action="updateEssayStatus"
-            id={essay.id}
-            value={essay.status}
-            options={ESSAY_STATUS_OPTIONS}
-          />,
-          <AdminNotesBox
+            fallback={<AdminReadOnlyValue value={essay.status} />}
+          >
+            <AdminStatusSelect
+              action="updateEssayStatus"
+              id={essay.id}
+              value={essay.status}
+              options={ESSAY_STATUS_OPTIONS}
+            />
+          </AdminActionGate>,
+          <AdminActionGate
             key={`notes-${essay.id}`}
+            role={role}
             action="updateEssayNotes"
-            id={essay.id}
-            value={essay.admin_notes}
-            placeholder="Reviewer notes, assignment notes, quality concerns, next action."
-          />,
+            fallback={<AdminReadOnlyValue value={essay.admin_notes} multiline />}
+          >
+            <AdminNotesBox
+              action="updateEssayNotes"
+              id={essay.id}
+              value={essay.admin_notes}
+              placeholder="Reviewer notes, assignment notes, quality concerns, next action."
+            />
+          </AdminActionGate>,
         ])}
       />
     </AdminPageShell>
