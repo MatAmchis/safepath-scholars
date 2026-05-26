@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
+import { canExportAdminData } from "../../../admin/adminPermissions";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,7 @@ const EXPORT_CONFIG = {
       "volunteer_id",
       "service_track",
       "status",
+      "start_date",
       "notes",
     ],
   },
@@ -86,10 +88,9 @@ const EXPORT_CONFIG = {
       "created_at",
       "student_id",
       "application_type",
-      "institution",
-      "program_name",
+      "institution_or_program",
       "deadline",
-      "status",
+      "submitted",
       "outcome",
       "notes",
     ],
@@ -113,11 +114,12 @@ const EXPORT_CONFIG = {
     defaultColumns: [
       "id",
       "created_at",
-      "name",
+      "respondent_type",
       "email",
-      "role",
-      "rating",
-      "message",
+      "service_used",
+      "rating_helpfulness",
+      "concern_reported",
+      "comments",
       "status",
     ],
   },
@@ -174,7 +176,6 @@ function getColumns(rows, defaultColumns) {
 
 function rowsToCsv(rows, defaultColumns) {
   const columns = getColumns(rows, defaultColumns);
-
   const header = columns.map(csvEscape).join(",");
 
   const body = rows
@@ -184,39 +185,49 @@ function rowsToCsv(rows, defaultColumns) {
   return body ? `${header}\n${body}\n` : `${header}\n`;
 }
 
-async function requireAdmin(supabase) {
+async function getAdminContext(supabase) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { user: null, isAdmin: false };
+    return {
+      user: null,
+      profile: null,
+      role: "",
+      error: "Not authenticated.",
+      status: 401,
+    };
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("id, email, full_name, role")
     .eq("id", user.id)
     .maybeSingle();
 
+  if (profileError || !profile) {
+    return {
+      user,
+      profile: null,
+      role: "",
+      error: "Admin profile not found.",
+      status: 403,
+    };
+  }
+
   return {
     user,
-    isAdmin: profile?.role === "admin",
+    profile,
+    role: profile.role || "",
+    error: null,
+    status: 200,
   };
 }
 
 export async function GET(request) {
   try {
     const supabase = await createClient();
-
-    const { isAdmin } = await requireAdmin(supabase);
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Admin access required." },
-        { status: 403 }
-      );
-    }
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
@@ -227,6 +238,26 @@ export async function GET(request) {
       return NextResponse.json(
         { error: "Unsupported export type." },
         { status: 400 }
+      );
+    }
+
+    const adminContext = await getAdminContext(supabase);
+
+    if (adminContext.error) {
+      return NextResponse.json(
+        { error: adminContext.error },
+        { status: adminContext.status }
+      );
+    }
+
+    if (!canExportAdminData(adminContext.role, type)) {
+      return NextResponse.json(
+        {
+          error: "You do not have permission to export this data.",
+          type,
+          role: adminContext.role,
+        },
+        { status: 403 }
       );
     }
 
@@ -257,7 +288,7 @@ export async function GET(request) {
     console.error("Admin CSV export error:", error);
 
     return NextResponse.json(
-      { error: "Unexpected server error." },
+      { error: error.message || "Unexpected server error." },
       { status: 500 }
     );
   }
