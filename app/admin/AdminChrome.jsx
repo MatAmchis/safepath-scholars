@@ -1,4 +1,9 @@
 import LogoutButton from "./LogoutButton";
+import {
+  canAccessAdminPage,
+  getRoleLabel,
+  isAnyAdminRole,
+} from "./adminPermissions";
 
 const adminLinks = [
   { href: "/admin", label: "Overview" },
@@ -15,7 +20,9 @@ const adminLinks = [
   { href: "/admin/feedback", label: "Feedback" },
 ];
 
-export function AccessRestricted({ user }) {
+export function AccessRestricted({ user, profile }) {
+  const role = profile?.role || "";
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-20 text-slate-950">
       <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -26,13 +33,32 @@ export function AccessRestricted({ user }) {
         <h1 className="mt-4 text-3xl font-black">Admin access required</h1>
 
         <p className="mt-4 leading-7 text-slate-600">
-          You are logged in, but this account has not been assigned the admin
-          role yet.
+          You are logged in, but this account does not have permission to view
+          this admin page.
         </p>
 
-        <p className="mt-4 rounded-2xl bg-slate-50 p-4 font-mono text-sm text-slate-700">
-          Current email: {user.email}
-        </p>
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 font-mono text-sm text-slate-700">
+          <p>Current email: {user?.email || "Unknown"}</p>
+          <p>Current role: {role ? getRoleLabel(role) : "No admin role"}</p>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a
+            href="/"
+            className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 ring-1 ring-slate-200 hover:bg-slate-100"
+          >
+            Back to website
+          </a>
+
+          {isAnyAdminRole(role) && (
+            <a
+              href="/admin"
+              className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
+            >
+              Back to admin overview
+            </a>
+          )}
+        </div>
       </div>
     </main>
   );
@@ -46,6 +72,16 @@ export function AdminPageShell({
   current,
   children,
 }) {
+  const role = profile?.role || "";
+
+  if (current && !canAccessAdminPage(role, current)) {
+    return <AccessRestricted user={user} profile={profile} />;
+  }
+
+  const visibleAdminLinks = adminLinks.filter((link) =>
+    canAccessAdminPage(role, link.href)
+  );
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
       <div className="mx-auto max-w-7xl">
@@ -61,7 +97,13 @@ export function AdminPageShell({
 
             <p className="mt-3 text-slate-600">
               {subtitle ||
-                `Welcome, ${profile.full_name || profile.email || user.email}.`}
+                `Welcome, ${
+                  profile?.full_name || profile?.email || user?.email
+                }.`}
+            </p>
+
+            <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+              Role: {getRoleLabel(role)}
             </p>
           </div>
 
@@ -92,7 +134,7 @@ export function AdminPageShell({
         </div>
 
         <nav className="mb-10 flex gap-2 overflow-x-auto rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-          {adminLinks.map((link) => (
+          {visibleAdminLinks.map((link) => (
             <a
               key={link.href}
               href={link.href}
