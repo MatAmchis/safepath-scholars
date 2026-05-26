@@ -23,6 +23,8 @@ const ADMIN_PAGE_PERMISSIONS = {
     ADMIN_ROLES.VIEWER,
   ],
 
+  "/admin/staff": [ADMIN_ROLES.ADMIN],
+
   "/admin/status-guide": [
     ADMIN_ROLES.ADMIN,
     ADMIN_ROLES.COORDINATOR,
@@ -107,11 +109,13 @@ const ADMIN_ACTION_PERMISSIONS = {
     ADMIN_ROLES.ESSAY_LEAD,
     ADMIN_ROLES.COORDINATOR,
   ],
+
   updateEssayStatus: [
     ADMIN_ROLES.ADMIN,
     ADMIN_ROLES.ESSAY_LEAD,
     ADMIN_ROLES.COORDINATOR,
   ],
+
   updateEssayNotes: [
     ADMIN_ROLES.ADMIN,
     ADMIN_ROLES.ESSAY_LEAD,
