@@ -1,6 +1,7 @@
 import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import StaffRoleSelect from "../StaffRoleSelect";
+import StaffInviteBox from "../StaffInviteBox";
 import { getRoleLabel, isFullAdmin } from "../adminPermissions";
 
 export default async function StaffAdminPage() {
@@ -10,12 +11,20 @@ export default async function StaffAdminPage() {
     return <AccessRestricted user={user} profile={profile} />;
   }
 
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, created_at")
-    .order("created_at", { ascending: false });
+  const [profilesResult, invitesResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, email, full_name, role, created_at")
+      .order("created_at", { ascending: false }),
 
-  const staffProfiles = profiles || [];
+    supabase
+      .from("pending_staff_invites")
+      .select("id, email, role, note, created_at, accepted_at")
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const staffProfiles = profilesResult.data || [];
+  const pendingInvites = invitesResult.data || [];
 
   return (
     <AdminPageShell
@@ -35,20 +44,42 @@ export default async function StaffAdminPage() {
         </h2>
 
         <p className="mt-3 max-w-4xl text-sm leading-7 text-slate-700">
-          This page updates <code>public.profiles.role</code>. A person must
-          have logged in at least once and have a profile row before they appear
-          here. Keep your own main account as <strong>admin</strong>.
+          Existing staff accounts appear once they have logged in. Pending staff
+          invites let you assign a role before login; once that email signs in,
+          the role is applied automatically.
         </p>
       </div>
 
-      {error && (
+      <div className="mb-8">
+        <StaffInviteBox />
+      </div>
+
+      {(profilesResult.error || invitesResult.error) && (
         <div className="mb-8 rounded-3xl border border-rose-200 bg-rose-50 p-6">
           <p className="text-sm font-bold text-rose-800">
-            Could not load staff profiles.
+            Could not load staff data.
           </p>
-          <p className="mt-2 text-sm text-rose-700">{error.message}</p>
+          <p className="mt-2 text-sm text-rose-700">
+            {profilesResult.error?.message || invitesResult.error?.message}
+          </p>
         </div>
       )}
+
+      <div className="mb-8">
+        <DataTable
+          title={`Pending Staff Invites (${pendingInvites.length})`}
+          headers={["Email", "Role", "Note", "Status", "Created"]}
+          rows={pendingInvites.map((invite) => [
+            invite.email,
+            getRoleLabel(invite.role),
+            invite.note || "—",
+            invite.accepted_at ? "Accepted" : "Pending",
+            invite.created_at
+              ? new Date(invite.created_at).toLocaleDateString()
+              : "—",
+          ])}
+        />
+      </div>
 
       <DataTable
         title={`Staff Profiles (${staffProfiles.length})`}

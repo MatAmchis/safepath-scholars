@@ -19,16 +19,21 @@ function getSafeNextPath(next) {
   return next;
 }
 
-async function ensureProfileExists(supabase, user) {
+function getUserFullName(user) {
+  return (
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.user_metadata?.display_name ||
+    ""
+  );
+}
+
+async function ensureProfileExistsFallback(supabase, user) {
   if (!user?.id || !user?.email) {
     return;
   }
 
-  const fullName =
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.user_metadata?.display_name ||
-    "";
+  const fullName = getUserFullName(user);
 
   const { data: existingProfile, error: selectError } = await supabase
     .from("profiles")
@@ -74,6 +79,26 @@ async function ensureProfileExists(supabase, user) {
   }
 }
 
+async function syncProfileAndClaimInvite(supabase, user) {
+  if (!user?.id || !user?.email) {
+    return;
+  }
+
+  const fullName = getUserFullName(user);
+
+  const { error } = await supabase.rpc("claim_pending_staff_invite", {
+    full_name_input: fullName,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  console.error("Could not claim pending staff invite:", error);
+
+  await ensureProfileExistsFallback(supabase, user);
+}
+
 export async function GET(request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -102,7 +127,7 @@ export async function GET(request) {
   }
 
   if (user) {
-    await ensureProfileExists(supabase, user);
+    await syncProfileAndClaimInvite(supabase, user);
   }
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));
