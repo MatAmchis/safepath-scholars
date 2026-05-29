@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "../../../../lib/supabase/server";
 import {
   ADMIN_ROLES,
+  getRoleLabel,
   isFullAdmin,
   normalizeRole,
 } from "../../../admin/adminPermissions";
@@ -22,6 +23,142 @@ function normalizeEmail(email) {
 
 function isLikelyEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function getBaseUrl(request) {
+  const requestUrl = new URL(request.url);
+
+  return (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    requestUrl.origin
+  );
+}
+
+function buildStaffInviteEmail({ email, role, note, baseUrl }) {
+  const roleLabel = getRoleLabel(role);
+  const loginUrl = `${baseUrl}/login`;
+
+  const subject = `You’ve been invited to SafePath Scholars as ${roleLabel}`;
+
+  const text = `
+You’ve been invited to SafePath Scholars as ${roleLabel}.
+
+To accept the invite, log in using this exact email address:
+
+${email}
+
+Login here:
+${loginUrl}
+
+After you log in, your staff role will be applied automatically.
+
+${note ? `Internal note from admin: ${note}` : ""}
+
+SafePath Scholars
+`.trim();
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a; max-width: 640px;">
+      <h2 style="margin-bottom: 12px;">You’ve been invited to SafePath Scholars</h2>
+
+      <p>
+        You have been invited to access the SafePath Scholars admin portal as:
+      </p>
+
+      <p style="font-size: 18px; font-weight: 700; margin: 16px 0;">
+        ${roleLabel}
+      </p>
+
+      <p>
+        To accept the invite, log in using this exact email address:
+      </p>
+
+      <p style="font-weight: 700; background: #f1f5f9; padding: 12px 16px; border-radius: 12px;">
+        ${email}
+      </p>
+
+      <p>
+        After you log in, your staff role will be applied automatically.
+      </p>
+
+      <p style="margin: 24px 0;">
+        <a
+          href="${loginUrl}"
+          style="background: #020617; color: white; padding: 12px 18px; border-radius: 12px; text-decoration: none; font-weight: 700;"
+        >
+          Log in to SafePath Scholars
+        </a>
+      </p>
+
+      ${
+        note
+          ? `<p style="background: #fffbeb; border: 1px solid #fde68a; padding: 12px 16px; border-radius: 12px;">
+              <strong>Admin note:</strong> ${note}
+            </p>`
+          : ""
+      }
+
+      <p style="margin-top: 28px; color: #64748b; font-size: 13px;">
+        SafePath Scholars
+      </p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+async function sendStaffInviteEmail({ email, role, note, baseUrl }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from =
+    process.env.NOTIFICATION_FROM ||
+    "SafePath Scholars <notifications@safepathscholars.org>";
+
+  if (!apiKey) {
+    return {
+      sent: false,
+      error: "RESEND_API_KEY is not configured.",
+    };
+  }
+
+  const emailContent = buildStaffInviteEmail({
+    email,
+    role,
+    note,
+    baseUrl,
+  });
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: email,
+      subject: emailContent.subject,
+      text: emailContent.text,
+      html: emailContent.html,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    return {
+      sent: false,
+      error:
+        data?.message ||
+        data?.error ||
+        `Resend request failed with status ${response.status}.`,
+    };
+  }
+
+  return {
+    sent: true,
+    id: data?.id || null,
+  };
 }
 
 async function getAdminContext(supabase) {
@@ -127,9 +264,19 @@ export async function POST(request) {
       );
     }
 
+    const emailResult = await sendStaffInviteEmail({
+      email,
+      role,
+      note,
+      baseUrl: getBaseUrl(request),
+    });
+
     return NextResponse.json({
       success: true,
       invite: data,
+      emailSent: emailResult.sent,
+      emailId: emailResult.id || null,
+      emailError: emailResult.error || null,
     });
   } catch (error) {
     console.error("Staff invite route error:", error);
