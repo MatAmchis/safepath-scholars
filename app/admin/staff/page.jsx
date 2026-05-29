@@ -2,6 +2,7 @@ import { getAdmin } from "../adminHelpers";
 import { AccessRestricted, AdminPageShell, DataTable } from "../AdminChrome";
 import StaffRoleSelect from "../StaffRoleSelect";
 import StaffInviteBox from "../StaffInviteBox";
+import StaffInviteActions from "../StaffInviteActions";
 import { getRoleLabel, isFullAdmin } from "../adminPermissions";
 
 export default async function StaffAdminPage() {
@@ -68,7 +69,7 @@ export default async function StaffAdminPage() {
       <div className="mb-8">
         <DataTable
           title={`Pending Staff Invites (${pendingInvites.length})`}
-          headers={["Email", "Role", "Note", "Status", "Created"]}
+          headers={["Email", "Role", "Note", "Status", "Created", "Actions"]}
           rows={pendingInvites.map((invite) => [
             invite.email,
             getRoleLabel(invite.role),
@@ -77,6 +78,12 @@ export default async function StaffAdminPage() {
             invite.created_at
               ? new Date(invite.created_at).toLocaleDateString()
               : "—",
+            <StaffInviteActions
+              key={invite.id}
+              inviteId={invite.id}
+              email={invite.email}
+              acceptedAt={invite.accepted_at}
+            />,
           ])}
         />
       </div>

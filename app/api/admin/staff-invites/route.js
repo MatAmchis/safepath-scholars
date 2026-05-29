@@ -140,3 +140,59 @@ export async function POST(request) {
     );
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const supabase = await createClient();
+    const body = await request.json();
+
+    const inviteId = String(body?.inviteId || "").trim();
+
+    if (!inviteId) {
+      return NextResponse.json(
+        { error: "Missing invite id." },
+        { status: 400 }
+      );
+    }
+
+    const adminContext = await getAdminContext(supabase);
+
+    if (adminContext.error) {
+      return NextResponse.json(
+        { error: adminContext.error },
+        { status: adminContext.status }
+      );
+    }
+
+    if (!isFullAdmin(adminContext.role)) {
+      return NextResponse.json(
+        { error: "Only full admins can delete staff invites." },
+        { status: 403 }
+      );
+    }
+
+    const { error } = await supabase
+      .from("pending_staff_invites")
+      .delete()
+      .eq("id", inviteId);
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message || "Could not delete staff invite." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      inviteId,
+    });
+  } catch (error) {
+    console.error("Delete staff invite route error:", error);
+
+    return NextResponse.json(
+      { error: error.message || "Unexpected server error." },
+      { status: 500 }
+    );
+  }
+}
